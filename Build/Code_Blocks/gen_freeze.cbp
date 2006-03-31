@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="3" />
+	<Project>
+		<Option title="gen_freeze" />
+		<Option pch_mode="0" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="default">
+				<Option output="..\..\Binary\gen_freeze.dll" />
+				<Option working_dir="..\..\Binary" />
+				<Option type="3" />
+				<Option compiler="gcc" />
+				<Option includeInTargetAll="1" />
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-march=pentium-mmx" />
+			<Add option="-O3" />
+			<Add option="-DBUILD_DLL" />
+		</Compiler>
+		<Linker>
+			<Add option="-s" />
+		</Linker>
+		<Unit filename="..\..\Source\Winamp\Gen.h">
+			<Option compilerVar="CPP" />
+			<Option compile="0" />
+			<Option link="0" />
+			<Option target="default" />
+		</Unit>
+		<Unit filename="..\..\Source\Winamp\wa_ipc.h">
+			<Option compilerVar="CPP" />
+			<Option compile="0" />
+			<Option link="0" />
+			<Option target="default" />
+		</Unit>
+		<Unit filename="..\..\Source\Winamp\wa_msgids.h">
+			<Option compilerVar="CPP" />
+			<Option compile="0" />
+			<Option link="0" />
+			<Option target="default" />
+		</Unit>
+		<Unit filename="..\..\Source\gen_freeze.cpp">
+			<Option compilerVar="CPP" />
+			<Option target="default" />
+		</Unit>
+		<Unit filename="..\..\Source\gen_freeze.rc">
+			<Option compilerVar="WINDRES" />
+			<Option objectName="Source\gen_freeze.res" />
+			<Option target="default" />
+		</Unit>
+		<Unit filename="..\..\Source\resource.h">
+			<Option compilerVar="CPP" />
+			<Option compile="0" />
+			<Option link="0" />
+			<Option target="default" />
+		</Unit>
+	</Project>
+</CodeBlocks_project_file>

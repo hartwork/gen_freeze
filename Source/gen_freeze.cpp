@@ -15,11 +15,12 @@
 #include "Winamp/Gen.h"
 #include "Winamp/wa_ipc.h" 
 #include "Winamp/wa_msgids.h" 
+#include "resource.h"
 
 
 
 #define PLUGIN_TITLE    "Freeze Winamp Plugin"
-#define PLUGIN_VERSION  "0.5"
+#define PLUGIN_VERSION  "1.0"
 
 
 
@@ -39,10 +40,16 @@ WNDPROC WndprocPlaylistBackup = NULL;
 LRESULT CALLBACK WndprocPlaylist( HWND hwnd, UINT message, WPARAM wp, LPARAM lp );
 
 
+// During runtime
+bool bMoveableMain; 
+bool bMoveableEqualizer;
+bool bMoveablePlaylist;
 
-bool bFreezeMain       = true;
-bool bFreezeEqualizer  = true;
-bool bFreezePlaylist   = true;
+// Settings to apply for _next_ start
+bool bMoveableMainNext;
+bool bMoveableEqualizerNext;
+bool bMoveablePlaylistNext;
+
 
 RECT rMain;
 RECT rEqualizer;
@@ -94,16 +101,9 @@ LRESULT CALLBACK WndprocMain( HWND hwnd, UINT message, WPARAM wp, LPARAM lp )
 {
 	switch( message )
 	{
-	case WM_MOVE:
-		{
-			if( !IsMouseDown() ) break;
-			ApplyRect( hwnd, rEqualizer );
-		}
-		return 0;
-
 	case WM_WINDOWPOSCHANGING:
 		{
-			if( !bFreezeMain ) break;
+			if( bMoveableMain ) break;
 			
 			// Is window moved?
 			WINDOWPOS * const winpos = ( WINDOWPOS * )lp;
@@ -129,14 +129,14 @@ LRESULT CALLBACK WndprocEqualizer( HWND hwnd, UINT message, WPARAM wp, LPARAM lp
 	{
 	case WM_MOVE:
 		{
-			if( !IsMouseDown() ) break;
+			if( bMoveableEqualizer || !IsMouseDown() ) break;
 			ApplyRect( hwnd, rEqualizer );
 		}
 		return 0;
 
 	case WM_WINDOWPOSCHANGING:
 		{
-			if( !bFreezeEqualizer ) break;
+			if( bMoveableEqualizer ) break;
 			
 			// Is window moved?
 			WINDOWPOS * const winpos = ( WINDOWPOS * )lp;
@@ -162,14 +162,14 @@ LRESULT CALLBACK WndprocPlaylist( HWND hwnd, UINT message, WPARAM wp, LPARAM lp 
 	{
 	case WM_MOVE:
 		{
-			if( !IsMouseDown() ) break;
+			if( bMoveablePlaylist || !IsMouseDown() ) break;
 			ApplyRect( hwnd, rEqualizer );
 		}
 		return 0;
 
 	case WM_WINDOWPOSCHANGING:
 		{
-			if( !bFreezePlaylist ) break;
+			if( bMoveablePlaylist ) break;
 			
 			// Is window moved?
 			WINDOWPOS * const winpos = ( WINDOWPOS * )lp;
@@ -249,6 +249,184 @@ int init()
 	// Get Winamp.ini path
 	szWinampIni = ( char * )SendMessage( hMain, WM_WA_IPC, 0, IPC_GETINIFILE );	
 
+
+
+	// Read config
+	if( szWinampIni )
+	{
+		int res;
+		res = GetPrivateProfileInt( "gen_freeze", "MoveableMain", 0, szWinampIni );
+		bMoveableMain = bMoveableMainNext = res ? true : false;
+
+		res = GetPrivateProfileInt( "gen_freeze", "MoveableEqualizer", 0, szWinampIni );
+		bMoveableEqualizer = bMoveableEqualizerNext = res ? true : false;
+
+		res = GetPrivateProfileInt( "gen_freeze", "MoveablePlaylist", 0, szWinampIni );
+		bMoveablePlaylist = bMoveablePlaylistNext = res ? true : false;
+	}
+	else
+	{
+		bMoveableMain = bMoveableMainNext = false;
+		bMoveableEqualizer = bMoveableEqualizerNext = false;
+		bMoveablePlaylist = bMoveablePlaylistNext = false;
+	}
+	
+	return 0;
+}
+
+
+
+void UpdateAllBox( const HWND h, const bool a, const bool b, const bool c )
+{
+	int iCount = 0;
+	if( a ) iCount++;
+	if( b ) iCount++;
+	if( c ) iCount++;
+
+	CheckDlgButton(
+		h,
+		IDC_ALL,
+		iCount ? ( ( iCount < 3 ) ? BST_INDETERMINATE : BST_CHECKED ): BST_UNCHECKED
+	);
+}
+
+
+
+BOOL CALLBACK WndprocConfig( HWND hwnd, UINT message, WPARAM wp, LPARAM lp )
+{
+	static bool bMoveableMainNextBefore;
+	static bool bMoveableEqualizerNextBefore;
+	static bool bMoveablePlaylistNextBefore;
+	
+	static bool bDiscardSettings;
+	
+	switch( message )
+	{
+		case WM_INITDIALOG:
+		{
+			// Save current settings
+			bMoveableMainNextBefore       = bMoveableMainNext;
+			bMoveableEqualizerNextBefore  = bMoveableEqualizerNext;
+			bMoveablePlaylistNextBefore   = bMoveablePlaylistNext;
+			
+			bDiscardSettings = true;
+
+
+			// Apply settings to checkboxes
+			CheckDlgButton( hwnd, IDC_MAIN, ( bMoveableMainNext ? BST_CHECKED : BST_UNCHECKED ) );
+			CheckDlgButton( hwnd, IDC_EQUALIZER, ( bMoveableEqualizerNext ? BST_CHECKED : BST_UNCHECKED ) );
+			CheckDlgButton( hwnd, IDC_PLAYLIST, ( bMoveablePlaylistNext ? BST_CHECKED : BST_UNCHECKED ) );
+			UpdateAllBox( hwnd, bMoveableMainNext, bMoveableEqualizerNext, bMoveablePlaylistNext );
+			
+			
+			// Set window title
+			char szTitle[ 512 ] = "";
+			wsprintf( szTitle, "%s %s", PLUGIN_TITLE, PLUGIN_VERSION );
+			SetWindowText( hwnd, szTitle );
+
+
+			// Center window on parent
+			RECT rp;
+			GetWindowRect( GetForegroundWindow(), &rp );
+			const int iParentWidth   = rp.right - rp.left;
+			const int iParentHeight  = rp.bottom - rp.top;
+
+			RECT rf;
+			GetWindowRect( hwnd, &rf );
+			const int iFreezeWidth   = rf.right - rf.left;
+			const int iFreezeHeight  = rf.bottom - rf.top;
+
+			int ox = ( iParentWidth - iFreezeWidth ) / 2 + rp.left;
+			int oy = ( iParentHeight - iFreezeHeight ) / 2 + rp.top;
+
+			MoveWindow( hwnd, ox, oy, iFreezeWidth, iFreezeHeight, false );
+
+
+			return TRUE;
+		}
+
+		case WM_DESTROY:
+			if( bDiscardSettings )
+			{
+				// Restore old settings
+				bMoveableMainNext       = bMoveableMainNextBefore;
+				bMoveableEqualizerNext  = bMoveableEqualizerNextBefore;
+				bMoveablePlaylistNext   = bMoveablePlaylistNextBefore;
+			}
+			break;
+
+		case WM_SYSCOMMAND:
+			switch( wp )
+			{
+				case SC_CLOSE:
+				{
+					EndDialog( hwnd, FALSE );
+					return TRUE;
+				}
+			}
+			break;
+
+		case WM_COMMAND:
+		{
+			switch( LOWORD( wp ) )
+			{
+				case IDC_ALL:
+					switch( IsDlgButtonChecked( hwnd, IDC_ALL ) )
+					{
+					case BST_CHECKED:
+						// Uncheck all
+						CheckDlgButton( hwnd, IDC_ALL, BST_UNCHECKED );
+						CheckDlgButton( hwnd, IDC_MAIN, BST_UNCHECKED );
+						CheckDlgButton( hwnd, IDC_EQUALIZER, BST_UNCHECKED );
+						CheckDlgButton( hwnd, IDC_PLAYLIST, BST_UNCHECKED );
+						bMoveableMainNext       = false;
+						bMoveableEqualizerNext  = false;
+						bMoveablePlaylistNext   = false;
+						break;
+
+					case BST_INDETERMINATE:
+					case BST_UNCHECKED:
+						// Check all
+						CheckDlgButton( hwnd, IDC_ALL, BST_CHECKED );
+						CheckDlgButton( hwnd, IDC_MAIN, BST_CHECKED );
+						CheckDlgButton( hwnd, IDC_EQUALIZER, BST_CHECKED );
+						CheckDlgButton( hwnd, IDC_PLAYLIST, BST_CHECKED );
+						bMoveableMainNext       = true;
+						bMoveableEqualizerNext  = true;
+						bMoveablePlaylistNext   = true;
+						break;
+
+					}
+					break;
+
+				case IDC_MAIN:
+					bMoveableMainNext = ( BST_CHECKED == IsDlgButtonChecked( hwnd, IDC_MAIN ) );
+					UpdateAllBox( hwnd, bMoveableMainNext, bMoveableEqualizerNext, bMoveablePlaylistNext );
+					break;
+					
+				case IDC_EQUALIZER:
+					bMoveableEqualizerNext = ( BST_CHECKED == IsDlgButtonChecked( hwnd, IDC_EQUALIZER ) );
+					UpdateAllBox( hwnd, bMoveableMainNext, bMoveableEqualizerNext, bMoveablePlaylistNext );
+					break;
+					
+				case IDC_PLAYLIST:
+					bMoveablePlaylistNext = ( BST_CHECKED == IsDlgButtonChecked( hwnd, IDC_PLAYLIST ) );
+					UpdateAllBox( hwnd, bMoveableMainNext, bMoveableEqualizerNext, bMoveablePlaylistNext );
+					break;
+					
+				case IDOK:
+					bDiscardSettings = false;
+					// NO BREAK!
+
+				case IDCANCEL:	// Button or [ESCAPE]
+					EndDialog( hwnd, FALSE );
+					return TRUE;
+
+			}
+			break;
+
+		}
+	}
 	return 0;
 }
 
@@ -256,17 +434,7 @@ int init()
 
 void config()
 {
-	MessageBox(
-		GetForegroundWindow(),
-		PLUGIN_TITLE " " PLUGIN_VERSION "\n"
-			"\n"
-			"Copyright © 2006 Sebastian Pipping  \n"
-			"<webmaster@hartwork.org>\n"
-			"\n"
-			"-->  http://www.hartwork.org",
-		"About",
-		MB_ICONINFORMATION
-	);
+	DialogBox( plugin.hDllInstance, MAKEINTRESOURCE( IDD_CONFIG ), GetForegroundWindow(), WndprocConfig );
 } 
 
 
@@ -287,12 +455,28 @@ void quit()
 	// Winamp wrote its config before us so we can overwrite it
 	// If we don't do this the windows will be placed where
 	// they were "virtually" moved which is no good idea
-	WritePrivateProfileInt( "Winamp", "wx", rMain.left, szWinampIni );
-	WritePrivateProfileInt( "Winamp", "wy", rMain.top, szWinampIni );
-	WritePrivateProfileInt( "Winamp", "eq_wx", rEqualizer.left, szWinampIni );
-	WritePrivateProfileInt( "Winamp", "eq_wy", rEqualizer.top, szWinampIni );
-	WritePrivateProfileInt( "Winamp", "pe_wx", rPlaylist.left, szWinampIni );
-	WritePrivateProfileInt( "Winamp", "pe_wy", rPlaylist.top, szWinampIni );
+	
+	if( !bMoveableMain )
+	{
+		WritePrivateProfileInt( "Winamp", "wx", rMain.left, szWinampIni );
+		WritePrivateProfileInt( "Winamp", "wy", rMain.top, szWinampIni );
+	}
+
+	if( !bMoveableEqualizer )
+	{
+		WritePrivateProfileInt( "Winamp", "eq_wx", rEqualizer.left, szWinampIni );
+		WritePrivateProfileInt( "Winamp", "eq_wy", rEqualizer.top, szWinampIni );
+	}
+
+	if( !bMoveablePlaylist )
+	{
+		WritePrivateProfileInt( "Winamp", "pe_wx", rPlaylist.left, szWinampIni );
+		WritePrivateProfileInt( "Winamp", "pe_wy", rPlaylist.top, szWinampIni );
+	}
+
+	WritePrivateProfileInt( "gen_freeze", "MoveableMain", bMoveableMainNext ? 1 : 0, szWinampIni );
+	WritePrivateProfileInt( "gen_freeze", "MoveableEqualizer", bMoveableEqualizerNext ? 1 : 0, szWinampIni );
+	WritePrivateProfileInt( "gen_freeze", "MoveablePlaylist", bMoveablePlaylistNext ? 1 : 0, szWinampIni );
 }
 
 

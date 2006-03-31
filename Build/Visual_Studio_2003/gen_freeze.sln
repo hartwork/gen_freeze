@@ -1,0 +1,21 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "gen_freeze", "gen_freeze.vcproj", "{D97CCF4C-2BEA-437F-9B34-C7683176C21F}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		Debug = Debug
+		Release = Release
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{D97CCF4C-2BEA-437F-9B34-C7683176C21F}.Debug.ActiveCfg = Debug|Win32
+		{D97CCF4C-2BEA-437F-9B34-C7683176C21F}.Debug.Build.0 = Debug|Win32
+		{D97CCF4C-2BEA-437F-9B34-C7683176C21F}.Release.ActiveCfg = Release|Win32
+		{D97CCF4C-2BEA-437F-9B34-C7683176C21F}.Release.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal
