@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <CodeBlocks_project_file>
-	<FileVersion major="1" minor="3" />
+	<FileVersion major="1" minor="4" />
 	<Project>
 		<Option title="gen_freeze" />
 		<Option pch_mode="0" />
@@ -21,7 +21,24 @@
 		</Compiler>
 		<Linker>
 			<Add option="-s" />
+			<Add library="libgdi32.a" />
 		</Linker>
+		<Unit filename="..\..\Source\Emabox\Emabox.cpp">
+			<Option compilerVar="CPP" />
+			<Option target="default" />
+		</Unit>
+		<Unit filename="..\..\Source\Emabox\Emabox.h">
+			<Option compilerVar="CPP" />
+			<Option compile="0" />
+			<Option link="0" />
+			<Option target="default" />
+		</Unit>
+		<Unit filename="..\..\Source\Emabox\EmaboxConfig.h">
+			<Option compilerVar="CPP" />
+			<Option compile="0" />
+			<Option link="0" />
+			<Option target="default" />
+		</Unit>
 		<Unit filename="..\..\Source\Winamp\Gen.h">
 			<Option compilerVar="CPP" />
 			<Option compile="0" />

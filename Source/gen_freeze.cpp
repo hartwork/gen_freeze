@@ -16,11 +16,16 @@
 #include "Winamp/wa_ipc.h" 
 #include "Winamp/wa_msgids.h" 
 #include "resource.h"
+#include "Emabox/Emabox.h"
 
+
+#ifndef IPC_GETWND_MAIN
+# define IPC_GETWND_MAIN -1
+#endif
 
 
 #define PLUGIN_TITLE    "Freeze Winamp Plugin"
-#define PLUGIN_VERSION  "1.0"
+#define PLUGIN_VERSION  "1.2"
 
 
 
@@ -45,6 +50,8 @@ bool bMoveableMain;
 bool bMoveableEqualizer;
 bool bMoveablePlaylist;
 
+bool bWndShadeSwitching = false;
+
 // Settings to apply for _next_ start
 bool bMoveableMainNext;
 bool bMoveableEqualizerNext;
@@ -57,6 +64,10 @@ RECT rPlaylist;
 
 char * szWinampIni;
 
+int bDontAskRestart;
+
+int iNonShadePlaylistHeight;
+
 
 
 winampGeneralPurposePlugin plugin = {
@@ -68,6 +79,12 @@ winampGeneralPurposePlugin plugin = {
 	NULL,
 	NULL
 }; 
+
+
+
+HWND & hMain     = plugin.hwndParent;
+HWND hPlaylist   = NULL;
+HWND hEqualizer  = NULL;
 
 
 
@@ -101,9 +118,150 @@ LRESULT CALLBACK WndprocMain( HWND hwnd, UINT message, WPARAM wp, LPARAM lp )
 {
 	switch( message )
 	{
+	case WM_COMMAND:
+		switch( wp )
+		{
+		case WINAMP_OPTIONS_WINDOWSHADE:
+			{
+				// No handling if all moveable
+				if( bMoveableMain && bMoveableEqualizer && bMoveablePlaylist ) break;
+				
+				// Deny window shade if not all frozen
+				if( bMoveableMain || bMoveableEqualizer || bMoveablePlaylist ) return 0;
+
+				const bool bShadeBefore = ( SendMessage( hwnd, WM_WA_IPC, ( WPARAM )IPC_GETWND_MAIN, IPC_IS_WNDSHADE ) == 1 );
+				
+				GetWindowRect( hMain, &rMain );
+				GetWindowRect( hEqualizer, &rEqualizer );
+				GetWindowRect( hPlaylist, &rPlaylist );
+	
+				const bool bMoveEqualizer = ( rEqualizer.top == rMain.bottom )
+					|| ( ( rPlaylist.top == rMain.bottom ) && ( rEqualizer.top == rPlaylist.bottom ) );
+				const bool bMovePlaylist = ( rPlaylist.top == rMain.bottom )
+					|| ( ( rEqualizer.top == rMain.bottom ) && ( rPlaylist.top == rEqualizer.bottom ) );
+				
+				const int iDist = bShadeBefore ? 102 : -102;
+				
+				bWndShadeSwitching = true;
+
+					// We can only move unmoveable windows safely.
+					// Otherwise Winamp's "virtual" window positions
+					// get us into trouble later
+					if( bMoveEqualizer && !bMoveableEqualizer )
+					{
+						rEqualizer.top     += iDist;
+						rEqualizer.bottom  += iDist;
+						ApplyRect( hEqualizer, rEqualizer );
+					}
+
+					if( bMovePlaylist && !bMoveablePlaylist )
+					{
+						rPlaylist.top     += iDist;
+						rPlaylist.bottom  += iDist;
+						ApplyRect( hPlaylist, rPlaylist );
+					}
+
+				bWndShadeSwitching = false;
+			}
+			break;
+		
+		case WINAMP_OPTIONS_WINDOWSHADE_EQ:
+			{
+				// No handling if all moveable
+				if( bMoveableMain && bMoveableEqualizer && bMoveablePlaylist ) break;
+				
+				// Deny window shade if not all frozen
+				if( bMoveableMain || bMoveableEqualizer || bMoveablePlaylist ) return 0;
+
+				const bool bShadeBefore = ( SendMessage( hwnd, WM_WA_IPC, IPC_GETWND_EQ, IPC_IS_WNDSHADE ) == 1 );
+				
+				GetWindowRect( hMain, &rMain );
+				GetWindowRect( hEqualizer, &rEqualizer );
+				GetWindowRect( hPlaylist, &rPlaylist );
+	
+				const bool bMoveMain = ( rMain.top == rEqualizer.bottom )
+					|| ( ( rPlaylist.top == rEqualizer.bottom ) && ( rMain.top == rPlaylist.bottom ) );
+				const bool bMovePlaylist = ( rPlaylist.top == rEqualizer.bottom )
+					|| ( ( rMain.top == rEqualizer.bottom ) && ( rPlaylist.top == rMain.bottom ) );
+				
+				const int iDist = bShadeBefore ? 102 : -102;
+				
+				bWndShadeSwitching = true;
+
+					// We can only move unmoveable windows safely.
+					// Otherwise Winamp's "virtual" window positions
+					// get us into trouble later
+					if( bMoveMain && !bMoveableMain )
+					{
+						rMain.top     += iDist;
+						rMain.bottom  += iDist;
+						ApplyRect( hMain, rMain );
+					}
+
+					if( bMovePlaylist && !bMoveablePlaylist )
+					{
+						rPlaylist.top     += iDist;
+						rPlaylist.bottom  += iDist;
+						ApplyRect( hPlaylist, rPlaylist );
+					}
+
+				bWndShadeSwitching = false;
+			}
+			break;
+
+		case WINAMP_OPTIONS_WINDOWSHADE_PL:
+			{
+				// No handling if all moveable
+				if( bMoveableMain && bMoveableEqualizer && bMoveablePlaylist ) break;
+				
+				// Deny window shade if not all frozen
+				if( bMoveableMain || bMoveableEqualizer || bMoveablePlaylist ) return 0;
+
+				const bool bShadeBefore = ( SendMessage( hwnd, WM_WA_IPC, IPC_GETWND_PE, IPC_IS_WNDSHADE ) == 1 );
+				
+				GetWindowRect( hMain, &rMain );
+				GetWindowRect( hEqualizer, &rEqualizer );
+				GetWindowRect( hPlaylist, &rPlaylist );
+
+				// Update internal playlist height
+				if( !bShadeBefore ) iNonShadePlaylistHeight = rPlaylist.bottom - rPlaylist.top;
+	
+				const bool bMoveMain = ( rMain.top == rPlaylist.bottom )
+					|| ( ( rEqualizer.top == rPlaylist.bottom ) && ( rMain.top == rEqualizer.bottom ) );
+				const bool bMoveEqualizer = ( rEqualizer.top == rPlaylist.bottom )
+					|| ( ( rMain.top == rPlaylist.bottom ) && ( rEqualizer.top == rMain.bottom ) );
+				
+				const int iDist = bShadeBefore ? ( iNonShadePlaylistHeight - 14 ) : ( 14 - iNonShadePlaylistHeight );
+				
+				bWndShadeSwitching = true;
+
+					// We can only move unmoveable windows safely.
+					// Otherwise Winamp's "virtual" window positions
+					// get us into trouble later
+					if( bMoveMain && !bMoveableMain )
+					{
+						rMain.top     += iDist;
+						rMain.bottom  += iDist;
+						ApplyRect( hMain, rMain );
+					}
+
+					if( bMoveEqualizer && !bMoveableEqualizer )
+					{
+						rEqualizer.top     += iDist;
+						rEqualizer.bottom  += iDist;
+						ApplyRect( hEqualizer, rEqualizer );
+					}
+
+				bWndShadeSwitching = false;
+			}
+			break;
+
+		}
+		break;
+
 	case WM_WINDOWPOSCHANGING:
 		{
-			if( bMoveableMain ) break;
+			if( bMoveableMain || bWndShadeSwitching ) break;
 			
 			// Is window moved?
 			WINDOWPOS * const winpos = ( WINDOWPOS * )lp;
@@ -136,7 +294,7 @@ LRESULT CALLBACK WndprocEqualizer( HWND hwnd, UINT message, WPARAM wp, LPARAM lp
 
 	case WM_WINDOWPOSCHANGING:
 		{
-			if( bMoveableEqualizer ) break;
+			if( bMoveableEqualizer || bWndShadeSwitching ) break;
 			
 			// Is window moved?
 			WINDOWPOS * const winpos = ( WINDOWPOS * )lp;
@@ -163,16 +321,22 @@ LRESULT CALLBACK WndprocPlaylist( HWND hwnd, UINT message, WPARAM wp, LPARAM lp 
 	case WM_MOVE:
 		{
 			if( bMoveablePlaylist || !IsMouseDown() ) break;
-			ApplyRect( hwnd, rEqualizer );
+			ApplyRect( hwnd, rPlaylist );
 		}
 		return 0;
 
 	case WM_WINDOWPOSCHANGING:
 		{
-			if( bMoveablePlaylist ) break;
+			// Is window sized?
+			WINDOWPOS * const winpos = ( WINDOWPOS * )lp;
+			if( ( winpos->flags & SWP_NOSIZE ) != SWP_NOSIZE )
+			{
+				if( winpos->cy > 14 ) iNonShadePlaylistHeight = winpos->cy;
+			}
+
+			if( bMoveablePlaylist || bWndShadeSwitching ) break;
 			
 			// Is window moved?
-			WINDOWPOS * const winpos = ( WINDOWPOS * )lp;
 			if( ( winpos->flags & SWP_NOMOVE ) != SWP_NOMOVE )
 			{
 				// Deny moving
@@ -191,11 +355,11 @@ LRESULT CALLBACK WndprocPlaylist( HWND hwnd, UINT message, WPARAM wp, LPARAM lp 
 
 int init()
 {
-	HWND & hMain = plugin.hwndParent;
+	// HWND & hMain = plugin.hwndParent;
 
 	
 	// Get equalizer window
-	const HWND hEqualizer = ( HWND )SendMessage( hMain, WM_WA_IPC, IPC_GETWND_EQ, IPC_GETWND );
+	hEqualizer = ( HWND )SendMessage( hMain, WM_WA_IPC, IPC_GETWND_EQ, IPC_GETWND );
 	if( !hEqualizer || !IsWindow( hEqualizer ) ) return 1;
 
 	// Exchange equalizer window procedure
@@ -206,7 +370,7 @@ int init()
 
 
 	// Get playlist window
-	const HWND hPlaylist = ( HWND )SendMessage( hMain, WM_WA_IPC, IPC_GETWND_PE, IPC_GETWND );
+	hPlaylist = ( HWND )SendMessage( hMain, WM_WA_IPC, IPC_GETWND_PE, IPC_GETWND );
 	if( !hPlaylist || !IsWindow( hPlaylist ) )
 	{
 		// Revert equalizer
@@ -263,12 +427,18 @@ int init()
 
 		res = GetPrivateProfileInt( "gen_freeze", "MoveablePlaylist", 0, szWinampIni );
 		bMoveablePlaylist = bMoveablePlaylistNext = res ? true : false;
+
+		bDontAskRestart = GetPrivateProfileInt( "gen_freeze", "DontAskRestart", 0, szWinampIni );
+		iNonShadePlaylistHeight = GetPrivateProfileInt( "Winamp", "pe_height_ws", 232, szWinampIni );
 	}
 	else
 	{
 		bMoveableMain = bMoveableMainNext = false;
 		bMoveableEqualizer = bMoveableEqualizerNext = false;
 		bMoveablePlaylist = bMoveablePlaylistNext = false;
+		
+		bDontAskRestart = 0;
+		iNonShadePlaylistHeight = 232;
 	}
 	
 	return 0;
@@ -352,6 +522,25 @@ BOOL CALLBACK WndprocConfig( HWND hwnd, UINT message, WPARAM wp, LPARAM lp )
 				bMoveableMainNext       = bMoveableMainNextBefore;
 				bMoveableEqualizerNext  = bMoveableEqualizerNextBefore;
 				bMoveablePlaylistNext   = bMoveablePlaylistNextBefore;
+			}
+			else
+			{
+				if( !bDontAskRestart
+					&& ( ( bMoveableMain != bMoveableMainNext )
+						|| ( bMoveableEqualizer != bMoveableEqualizerNext )
+						|| ( bMoveablePlaylist != bMoveablePlaylistNext ) ) )
+				{
+					int res = ExtraMessageBox(
+						GetForegroundWindow(),
+						"The changes will take effect after restart.  \n"
+							"Do you want to restart Winamp now?",
+						"Restart?",
+						MB_YESNO | MB_ICONQUESTION | MB_CHECKNEVERAGAIN,
+						&bDontAskRestart
+					);
+					
+					if( res == IDYES ) PostMessage( hMain, WM_WA_IPC, 0, IPC_RESTARTWINAMP );
+				}
 			}
 			break;
 
@@ -477,6 +666,7 @@ void quit()
 	WritePrivateProfileInt( "gen_freeze", "MoveableMain", bMoveableMainNext ? 1 : 0, szWinampIni );
 	WritePrivateProfileInt( "gen_freeze", "MoveableEqualizer", bMoveableEqualizerNext ? 1 : 0, szWinampIni );
 	WritePrivateProfileInt( "gen_freeze", "MoveablePlaylist", bMoveablePlaylistNext ? 1 : 0, szWinampIni );
+	WritePrivateProfileInt( "gen_freeze", "DontAskRestart", bDontAskRestart, szWinampIni );
 }
 
 
