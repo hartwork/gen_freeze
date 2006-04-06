@@ -25,7 +25,7 @@
 
 
 #define PLUGIN_TITLE    "Freeze Winamp Plugin"
-#define PLUGIN_VERSION  "1.2"
+#define PLUGIN_VERSION  "1.3"
 
 
 
@@ -135,10 +135,22 @@ LRESULT CALLBACK WndprocMain( HWND hwnd, UINT message, WPARAM wp, LPARAM lp )
 				GetWindowRect( hEqualizer, &rEqualizer );
 				GetWindowRect( hPlaylist, &rPlaylist );
 	
-				const bool bMoveEqualizer = ( rEqualizer.top == rMain.bottom )
-					|| ( ( rPlaylist.top == rMain.bottom ) && ( rEqualizer.top == rPlaylist.bottom ) );
-				const bool bMovePlaylist = ( rPlaylist.top == rMain.bottom )
-					|| ( ( rEqualizer.top == rMain.bottom ) && ( rPlaylist.top == rEqualizer.bottom ) );
+				const bool bEqualizerVisible  = IsWindowVisible( hEqualizer );
+				const bool bPlaylistVisible   = IsWindowVisible( hPlaylist  );
+	
+				const bool bMoveEqualizer = !bMoveableEqualizer
+					&& bEqualizerVisible
+					// Main, Equalizer ?
+					&& ( ( rEqualizer.top == rMain.bottom )
+						// Main, Playlist, Equalizer ?
+						|| ( bPlaylistVisible && ( rPlaylist.top == rMain.bottom ) && ( rEqualizer.top == rPlaylist.bottom ) ) );
+
+				const bool bMovePlaylist = !bMoveablePlaylist
+					&& bPlaylistVisible
+					// Main, Playlist ?
+					&& ( ( rPlaylist.top == rMain.bottom )
+						// Main, Equalizer, Playlist ?
+						|| ( bEqualizerVisible && ( rEqualizer.top == rMain.bottom ) && ( rPlaylist.top == rEqualizer.bottom ) ) );
 				
 				const int iDist = bShadeBefore ? 102 : -102;
 				
@@ -147,14 +159,14 @@ LRESULT CALLBACK WndprocMain( HWND hwnd, UINT message, WPARAM wp, LPARAM lp )
 					// We can only move unmoveable windows safely.
 					// Otherwise Winamp's "virtual" window positions
 					// get us into trouble later
-					if( bMoveEqualizer && !bMoveableEqualizer )
+					if( bMoveEqualizer )
 					{
 						rEqualizer.top     += iDist;
 						rEqualizer.bottom  += iDist;
 						ApplyRect( hEqualizer, rEqualizer );
 					}
 
-					if( bMovePlaylist && !bMoveablePlaylist )
+					if( bMovePlaylist )
 					{
 						rPlaylist.top     += iDist;
 						rPlaylist.bottom  += iDist;
@@ -178,11 +190,23 @@ LRESULT CALLBACK WndprocMain( HWND hwnd, UINT message, WPARAM wp, LPARAM lp )
 				GetWindowRect( hMain, &rMain );
 				GetWindowRect( hEqualizer, &rEqualizer );
 				GetWindowRect( hPlaylist, &rPlaylist );
+
+				const bool bMainVisible      = IsWindowVisible( hMain      );
+				const bool bPlaylistVisible  = IsWindowVisible( hPlaylist  );
 	
-				const bool bMoveMain = ( rMain.top == rEqualizer.bottom )
-					|| ( ( rPlaylist.top == rEqualizer.bottom ) && ( rMain.top == rPlaylist.bottom ) );
-				const bool bMovePlaylist = ( rPlaylist.top == rEqualizer.bottom )
-					|| ( ( rMain.top == rEqualizer.bottom ) && ( rPlaylist.top == rMain.bottom ) );
+				const bool bMoveMain = !bMoveableMain
+					&& bMainVisible
+					// Equalizer, Main ?
+					&& ( ( rMain.top == rEqualizer.bottom )
+						// Equalizer, Playlist, Main ?
+						|| ( bPlaylistVisible && ( rPlaylist.top == rEqualizer.bottom ) && ( rMain.top == rPlaylist.bottom ) ) );
+
+				const bool bMovePlaylist = !bMoveablePlaylist
+					&& bPlaylistVisible
+					// Equalizer, Playlist ?
+					&& ( ( rPlaylist.top == rEqualizer.bottom )
+						// Equalizer, Main, Playlist ?
+						|| ( bMainVisible && ( rMain.top == rEqualizer.bottom ) && ( rPlaylist.top == rMain.bottom ) ) );
 				
 				const int iDist = bShadeBefore ? 102 : -102;
 				
@@ -191,14 +215,14 @@ LRESULT CALLBACK WndprocMain( HWND hwnd, UINT message, WPARAM wp, LPARAM lp )
 					// We can only move unmoveable windows safely.
 					// Otherwise Winamp's "virtual" window positions
 					// get us into trouble later
-					if( bMoveMain && !bMoveableMain )
+					if( bMoveMain )
 					{
 						rMain.top     += iDist;
 						rMain.bottom  += iDist;
 						ApplyRect( hMain, rMain );
 					}
 
-					if( bMovePlaylist && !bMoveablePlaylist )
+					if( bMovePlaylist )
 					{
 						rPlaylist.top     += iDist;
 						rPlaylist.bottom  += iDist;
@@ -225,11 +249,22 @@ LRESULT CALLBACK WndprocMain( HWND hwnd, UINT message, WPARAM wp, LPARAM lp )
 
 				// Update internal playlist height
 				if( !bShadeBefore ) iNonShadePlaylistHeight = rPlaylist.bottom - rPlaylist.top;
+
+				const bool bMainVisible       = IsWindowVisible( hMain      );
+				const bool bEqualizerVisible  = IsWindowVisible( hEqualizer );
 	
-				const bool bMoveMain = ( rMain.top == rPlaylist.bottom )
-					|| ( ( rEqualizer.top == rPlaylist.bottom ) && ( rMain.top == rEqualizer.bottom ) );
-				const bool bMoveEqualizer = ( rEqualizer.top == rPlaylist.bottom )
-					|| ( ( rMain.top == rPlaylist.bottom ) && ( rEqualizer.top == rMain.bottom ) );
+				const bool bMoveMain = !bMoveableMain
+					&& bMainVisible
+					// Playlist, Main ?
+					&& ( ( rMain.top == rPlaylist.bottom )
+						// Playlist, Equalizer, Main ?
+						|| ( bEqualizerVisible && ( rEqualizer.top == rPlaylist.bottom ) && ( rMain.top == rEqualizer.bottom ) ) );
+				const bool bMoveEqualizer = !bMoveableEqualizer
+					&& bEqualizerVisible
+					// Playlist, Equalizer ?
+					&& ( ( rEqualizer.top == rPlaylist.bottom )
+						// Playlist, Main, Equalizer ?
+						|| ( bMainVisible && ( rMain.top == rPlaylist.bottom ) && ( rEqualizer.top == rMain.bottom ) ) );
 				
 				const int iDist = bShadeBefore ? ( iNonShadePlaylistHeight - 14 ) : ( 14 - iNonShadePlaylistHeight );
 				
@@ -238,14 +273,14 @@ LRESULT CALLBACK WndprocMain( HWND hwnd, UINT message, WPARAM wp, LPARAM lp )
 					// We can only move unmoveable windows safely.
 					// Otherwise Winamp's "virtual" window positions
 					// get us into trouble later
-					if( bMoveMain && !bMoveableMain )
+					if( bMoveMain )
 					{
 						rMain.top     += iDist;
 						rMain.bottom  += iDist;
 						ApplyRect( hMain, rMain );
 					}
 
-					if( bMoveEqualizer && !bMoveableEqualizer )
+					if( bMoveEqualizer )
 					{
 						rEqualizer.top     += iDist;
 						rEqualizer.bottom  += iDist;
