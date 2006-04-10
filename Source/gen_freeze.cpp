@@ -25,7 +25,7 @@
 
 
 #define PLUGIN_TITLE    "Freeze Winamp Plugin"
-#define PLUGIN_VERSION  "1.3"
+#define PLUGIN_VERSION  "1.4"
 
 
 
@@ -297,11 +297,14 @@ LRESULT CALLBACK WndprocMain( HWND hwnd, UINT message, WPARAM wp, LPARAM lp )
 	case WM_WINDOWPOSCHANGING:
 		{
 			if( bMoveableMain || bWndShadeSwitching ) break;
-			
+
 			// Is window moved?
 			WINDOWPOS * const winpos = ( WINDOWPOS * )lp;
 			if( ( winpos->flags & SWP_NOMOVE ) != SWP_NOMOVE )
 			{
+				// Workaround broken window minimization
+				if( ( winpos->flags & SWP_FRAMECHANGED ) == SWP_FRAMECHANGED ) break;
+				
 				// Deny moving
 				winpos->flags |= SWP_NOMOVE;
 				return 0;
