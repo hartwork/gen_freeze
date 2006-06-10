@@ -26,7 +26,7 @@ LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
 // Dialog
 //
 
-IDD_CONFIG DIALOGEX 0, 0, 158, 127
+IDD_CONFIG DIALOGEX 0, 0, 158, 121
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | 
     WS_SYSMENU
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -40,12 +40,12 @@ BEGIN
                     WS_TABSTOP,25,37,42,9
     CONTROL         "Playlist",IDC_PLAYLIST,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,25,48,35,10
-    LTEXT           "Please note:\n*  Changes are applied after restart\n*  Window shade toggling only works\n    with all three in the same mode",
-                    IDC_INFO,19,74,121,34
     CONTROL         " http://www.hartwork.org",IDC_URL,"Static",
-                    SS_LEFTNOWORDWRAP | SS_SUNKEN | WS_GROUP,0,117,158,10
+                    SS_LEFTNOWORDWRAP | SS_SUNKEN | WS_GROUP,0,111,158,10
     DEFPUSHBUTTON   "OK",IDOK,102,6,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,102,23,50,14
+    LTEXT           "This plugin would not be possible\nwithout the help of BastardKidKris,\nbillyvnilly, Maxim and Mr Jones.",
+                    IDC_INFO,22,75,112,27
 END
 
 #endif    // German (Germany) resources

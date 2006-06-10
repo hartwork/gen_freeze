@@ -17,28 +17,19 @@
 		<Compiler>
 			<Add option="-march=pentium-mmx" />
 			<Add option="-O3" />
+			<Add option="-pedantic" />
+			<Add option="-W" />
+			<Add option="-Wall" />
 			<Add option="-DBUILD_DLL" />
 		</Compiler>
 		<Linker>
 			<Add option="-s" />
 			<Add library="libgdi32.a" />
 		</Linker>
-		<Unit filename="..\..\Source\Emabox\Emabox.cpp">
-			<Option compilerVar="CPP" />
-			<Option target="default" />
-		</Unit>
-		<Unit filename="..\..\Source\Emabox\Emabox.h">
-			<Option compilerVar="CPP" />
-			<Option compile="0" />
-			<Option link="0" />
-			<Option target="default" />
-		</Unit>
-		<Unit filename="..\..\Source\Emabox\EmaboxConfig.h">
-			<Option compilerVar="CPP" />
-			<Option compile="0" />
-			<Option link="0" />
-			<Option target="default" />
-		</Unit>
+		<ExtraCommands>
+			<Add after="..\..\__copyrun.bat" />
+			<Mode after="always" />
+		</ExtraCommands>
 		<Unit filename="..\..\Source\Winamp\Gen.h">
 			<Option compilerVar="CPP" />
 			<Option compile="0" />
