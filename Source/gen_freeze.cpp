@@ -25,7 +25,7 @@
 
 
 #define PLUGIN_TITLE    "Freeze Winamp Plugin"
-#define PLUGIN_VERSION  "2.1"
+#define PLUGIN_VERSION  "2.11"
 
 
 
@@ -89,6 +89,7 @@ LRESULT CALLBACK WndprocMain(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 			const int x = LOWORD(lp) >> doublesize;
 			const int y = HIWORD(lp) >> doublesize;
 			const bool shadeMode = ::SendMessage(hMain, WM_WA_IPC, static_cast<WPARAM>(IPC_GETWND_MAIN), IPC_IS_WNDSHADE) == 1;
+			const bool notStopped = ::SendMessage(hMain, WM_WA_IPC, 0, IPC_ISPLAYING) != 0;
 
 			if (shadeMode) {
 				if (((x >= 6) && (x <= 15) && (y >= 3) && (y <= 12)) // Menu
@@ -96,15 +97,13 @@ LRESULT CALLBACK WndprocMain(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 						|| ((x >= 126) && (x <= 144) && (y >= 4) && (y <= 10)) // Time 1
 						|| ((x >= 147) && (x <= 157) && (y >= 4) && (y <= 10)) // Time 2
 						|| ((x >= 168) && (x <= 225) && (y >= 2) && (y <= 12)) // Playback control
-						|| ((x >= 226) && (x <= 243) && (y >= 4) && (y <= 11)) // Seekbar
+						|| (notStopped && (x >= 226) && (x <= 243) && (y >= 4) && (y <= 11)) // Seekbar
 						|| ((x >= 244) && (x <= 253) && (y >= 3) && (y <= 12)) // Minimize
 						|| ((x >= 254) && (x <= 263) && (y >= 3) && (y <= 12)) // Winshade
 						|| ((x >= 264) && (x <= 273) && (y >= 3) && (y <= 12))) { // Close
 					break;
 				}
 			} else {
-				const bool notStopped = ::SendMessage(hMain, WM_WA_IPC, 0, IPC_ISPLAYING) != 0;
-				
 				if (((x >= 6) && (x <= 15) && (y >= 3) && (y <= 12))
 						|| ((x >= 10) && (x <= 18) && (y >= 22) && (y <= 65)) // Menu
 						|| ((x >= 16) && (x <= 130) && (y >= 88) && (y <= 106)) // Playback
