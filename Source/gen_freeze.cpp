@@ -25,7 +25,7 @@
 
 
 #define PLUGIN_TITLE    "Freeze Winamp Plugin"
-#define PLUGIN_VERSION  "2.11"
+#define PLUGIN_VERSION  "2.12"
 
 
 
@@ -157,8 +157,9 @@ LRESULT CALLBACK WndprocEqualizer(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 				break;
 			}
 
-			const int x = LOWORD(lp);
-			const int y = HIWORD(lp);
+			const int doublesize = static_cast<int>(::SendMessage(hMain, WM_WA_IPC, 0, IPC_ISDOUBLESIZE));
+			const int x = LOWORD(lp) >> doublesize;
+			const int y = HIWORD(lp) >> doublesize;
 			const bool shadeMode = ::SendMessage(hMain, WM_WA_IPC, IPC_GETWND_EQ, IPC_IS_WNDSHADE) == 1;
 
 			if (shadeMode) {
