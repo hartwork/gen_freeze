@@ -14,7 +14,7 @@
 #include <windows.h> 
 #include "Winamp/Gen.h"
 #include "Winamp/wa_ipc.h" 
-#include "Winamp/wa_msgids.h" 
+#include "Winamp/wa_msgids.h"
 #include "resource.h"
 
 
@@ -25,7 +25,7 @@
 
 
 #define PLUGIN_TITLE    "Freeze Winamp Plugin"
-#define PLUGIN_VERSION  "2.0"
+#define PLUGIN_VERSION  "2.1"
 
 
 
@@ -85,8 +85,9 @@ LRESULT CALLBACK WndprocMain(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 				break;
 			}
 			
-			const int x = LOWORD(lp);
-			const int y = HIWORD(lp);
+			const int doublesize = static_cast<int>(::SendMessage(hMain, WM_WA_IPC, 0, IPC_ISDOUBLESIZE));
+			const int x = LOWORD(lp) >> doublesize;
+			const int y = HIWORD(lp) >> doublesize;
 			const bool shadeMode = ::SendMessage(hMain, WM_WA_IPC, static_cast<WPARAM>(IPC_GETWND_MAIN), IPC_IS_WNDSHADE) == 1;
 
 			if (shadeMode) {
@@ -102,30 +103,34 @@ LRESULT CALLBACK WndprocMain(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 					break;
 				}
 			} else {
+				const bool notStopped = ::SendMessage(hMain, WM_WA_IPC, 0, IPC_ISPLAYING) != 0;
+				
 				if (((x >= 6) && (x <= 15) && (y >= 3) && (y <= 12))
-						|| ((x >= 10) && (x <= 18) && (y >= 22) && (y <= 65))
-						|| ((x >= 16) && (x <= 130) && (y >= 88) && (y <= 106))
-						|| ((x >= 16) && (x <= 264) && (y >= 72) && (y <= 82))
-						|| ((x >= 24) && (x <= 35) && (y >= 28) && (y <= 37))
-						|| ((x >= 24) && (x <= 100) && (y >= 43) && (y <= 59))
-						|| ((x >= 36) && (x <= 45) && (y >= 26) && (y <= 39))
-						|| ((x >= 48) && (x <= 57) && (y >= 26) && (y <= 39))
-						|| ((x >= 60) && (x <= 69) && (y >= 26) && (y <= 39))
-						|| ((x >= 78) && (x <= 87) && (y >= 26) && (y <= 39))
-						|| ((x >= 90) && (x <= 99) && (y >= 26) && (y <= 39))
-						|| ((x >= 107) && (x <= 175) && (y >= 57) && (y <= 70))
-						|| ((x >= 111) && (x <= 126) && (y >= 43) && (y <= 49))
-						|| ((x >= 111) && (x <= 265) && (y >= 24) && (y <= 36))
-						|| ((x >= 136) && (x <= 158) && (y >= 89) && (y <= 105))
-						|| ((x >= 156) && (x <= 166) && (y >= 43) && (y <= 49))
-						|| ((x >= 164) && (x <= 238) && (y >= 89) && (y <= 104))
-						|| ((x >= 177) && (x <= 215) && (y >= 57) && (y <= 70))
-						|| ((x >= 212) && (x <= 268) && (y >= 41) && (y <= 53))
-						|| ((x >= 219) && (x <= 265) && (y >= 58) && (y <= 70))
-						|| ((x >= 244) && (x <= 253) && (y >= 3) && (y <= 12))
-						|| ((x >= 253) && (x <= 266) && (y >= 91) && (y <= 106))
-						|| ((x >= 254) && (x <= 263) && (y >= 3) && (y <= 12))
-						|| ((x >= 264) && (x <= 273) && (y >= 3) && (y <= 12))) {
+						|| ((x >= 10) && (x <= 18) && (y >= 22) && (y <= 65)) // Menu
+						|| ((x >= 16) && (x <= 130) && (y >= 88) && (y <= 106)) // Playback
+						|| (notStopped && (x >= 16) && (x <= 264) && (y >= 72) && (y <= 82)) // Seekbar
+						|| ((x >= 24) && (x <= 35) && (y >= 28) && (y <= 37)) // Status
+						|| ((x >= 24) && (x <= 100) && (y >= 43) && (y <= 59)) // Vis
+						|| ((x >= 36) && (x <= 45) && (y >= 26) && (y <= 39)) // Minus
+						|| ((x >= 48) && (x <= 57) && (y >= 26) && (y <= 39)) // Time Minutes Ten
+						|| ((x >= 60) && (x <= 69) && (y >= 26) && (y <= 39)) // Time Minutes One
+						|| ((x >= 78) && (x <= 87) && (y >= 26) && (y <= 39)) // Time Seconds Ten
+						|| ((x >= 90) && (x <= 99) && (y >= 26) && (y <= 39)) // Time Minutes One
+						// || ((x >= 107) && (x <= 175) && (y >= 57) && (y <= 70)) // Volume
+						|| ((x >= 107) && (x <= 175) && (y >= 58) && (y <= 66)) // Volume
+						|| ((x >= 111) && (x <= 126) && (y >= 43) && (y <= 49)) // Kbps
+						|| ((x >= 111) && (x <= 265) && (y >= 24) && (y <= 36)) // Title
+						|| ((x >= 136) && (x <= 158) && (y >= 89) && (y <= 105)) // Open
+						|| ((x >= 156) && (x <= 166) && (y >= 43) && (y <= 49)) // Khz
+						|| ((x >= 164) && (x <= 238) && (y >= 89) && (y <= 104)) // Shuffle and Repeat
+						// || ((x >= 177) && (x <= 215) && (y >= 57) && (y <= 70)) // Panning
+						|| ((x >= 177) && (x <= 215) && (y >= 58) && (y <= 66)) // Panning
+						|| ((x >= 212) && (x <= 268) && (y >= 41) && (y <= 53)) // Mono/Stereo 
+						|| ((x >= 219) && (x <= 265) && (y >= 58) && (y <= 70)) // EQ and Playlist
+						|| ((x >= 244) && (x <= 253) && (y >= 3) && (y <= 12)) // Minimize
+						|| ((x >= 253) && (x <= 266) && (y >= 91) && (y <= 106)) // About
+						|| ((x >= 254) && (x <= 263) && (y >= 3) && (y <= 12)) // Winshade
+						|| ((x >= 264) && (x <= 273) && (y >= 3) && (y <= 12))) { // Close
 					break;
 				}
 			}
