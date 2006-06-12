@@ -13,8 +13,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h> 
 #include "Winamp/Gen.h"
-#include "Winamp/wa_ipc.h" 
-#include "Winamp/wa_msgids.h"
+#include "Winamp/wa_ipc.h"
 #include "resource.h"
 
 
@@ -25,7 +24,7 @@
 
 
 #define PLUGIN_TITLE    "Freeze Winamp Plugin"
-#define PLUGIN_VERSION  "2.12"
+#define PLUGIN_VERSION  "2.13"
 
 
 
@@ -50,6 +49,7 @@ bool bMoveableEqualizer;
 bool bMoveablePlaylist;
 
 char * szWinampIni = NULL;
+bool winamp504orAbove = false;
 
 
 
@@ -86,10 +86,18 @@ LRESULT CALLBACK WndprocMain(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 			}
 			
 			const int doublesize = static_cast<int>(::SendMessage(hMain, WM_WA_IPC, 0, IPC_ISDOUBLESIZE));
+			const bool notStopped = ::SendMessage(hMain, WM_WA_IPC, 0, IPC_ISPLAYING) != 0;
 			const int x = LOWORD(lp) >> doublesize;
 			const int y = HIWORD(lp) >> doublesize;
-			const bool shadeMode = ::SendMessage(hMain, WM_WA_IPC, static_cast<WPARAM>(IPC_GETWND_MAIN), IPC_IS_WNDSHADE) == 1;
-			const bool notStopped = ::SendMessage(hMain, WM_WA_IPC, 0, IPC_ISPLAYING) != 0;
+			
+			bool shadeMode;
+			if (winamp504orAbove) {
+				shadeMode = ::SendMessage(hMain, WM_WA_IPC, static_cast<WPARAM>(IPC_GETWND_MAIN), IPC_IS_WNDSHADE) == 1;
+			} else {
+				RECT r;
+				::GetWindowRect(hwnd, &r);
+				shadeMode = (r.bottom - r.top) == 14;
+			}
 
 			if (shadeMode) {
 				if (((x >= 6) && (x <= 15) && (y >= 3) && (y <= 12)) // Menu
@@ -160,7 +168,15 @@ LRESULT CALLBACK WndprocEqualizer(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 			const int doublesize = static_cast<int>(::SendMessage(hMain, WM_WA_IPC, 0, IPC_ISDOUBLESIZE));
 			const int x = LOWORD(lp) >> doublesize;
 			const int y = HIWORD(lp) >> doublesize;
-			const bool shadeMode = ::SendMessage(hMain, WM_WA_IPC, IPC_GETWND_EQ, IPC_IS_WNDSHADE) == 1;
+
+			bool shadeMode;
+			if (winamp504orAbove) {
+				shadeMode = ::SendMessage(hMain, WM_WA_IPC, IPC_GETWND_EQ, IPC_IS_WNDSHADE) == 1;
+			} else {
+				RECT r;
+				::GetWindowRect(hwnd, &r);
+				shadeMode = (r.bottom - r.top) == 14;
+			}
 
 			if (shadeMode) {
 				if (((x >= 61) && (x <= 158) && (y >= 4) && (y <= 11)) // Volume
@@ -170,22 +186,22 @@ LRESULT CALLBACK WndprocEqualizer(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 					break;
 				}
 			} else {
-				if (((x >= 14) && (x <= 73) && (y >= 18) && (y <= 30))
-						|| ((x >= 21) && (x <= 35) && (y >= 38) && (y <= 101))
-						|| ((x >= 42) && (x <= 68) && (y >= 65) && (y <= 75))
-						|| ((x >= 78) && (x <= 92) && (y >= 38) && (y <= 101))
-						|| ((x >= 96) && (x <= 110) && (y >= 38) && (y <= 101))
-						|| ((x >= 114) && (x <= 128) && (y >= 38) && (y <= 101))
-						|| ((x >= 132) && (x <= 146) && (y >= 38) && (y <= 101))
-						|| ((x >= 150) && (x <= 164) && (y >= 38) && (y <= 101))
-						|| ((x >= 168) && (x <= 182) && (y >= 38) && (y <= 101))
-						|| ((x >= 186) && (x <= 200) && (y >= 38) && (y <= 101))
-						|| ((x >= 204) && (x <= 218) && (y >= 38) && (y <= 101))
-						|| ((x >= 217) && (x <= 261) && (y >= 18) && (y <= 30))
-						|| ((x >= 222) && (x <= 236) && (y >= 38) && (y <= 101))
-						|| ((x >= 240) && (x <= 254) && (y >= 38) && (y <= 101))
-						|| ((x >= 254) && (x <= 263) && (y >= 3) && (y <= 12))
-						|| ((x >= 264) && (x <= 273) && (y >= 3) && (y <= 12))) {
+				if (((x >= 14) && (x <= 73) && (y >= 18) && (y <= 30)) // On and Auto
+						|| ((x >= 21) && (x <= 35) && (y >= 38) && (y <= 101)) // Preamp
+						|| ((x >= 42) && (x <= 68) && (y >= 65) && (y <= 75)) // Reset
+						|| ((x >= 78) && (x <= 92) && (y >= 38) && (y <= 101)) // Slider 01
+						|| ((x >= 96) && (x <= 110) && (y >= 38) && (y <= 101)) // Slider 02
+						|| ((x >= 114) && (x <= 128) && (y >= 38) && (y <= 101)) // Slider 03
+						|| ((x >= 132) && (x <= 146) && (y >= 38) && (y <= 101)) // Slider 04
+						|| ((x >= 150) && (x <= 164) && (y >= 38) && (y <= 101)) // Slider 05
+						|| ((x >= 168) && (x <= 182) && (y >= 38) && (y <= 101)) // Slider 06
+						|| ((x >= 186) && (x <= 200) && (y >= 38) && (y <= 101)) // Slider 07
+						|| ((x >= 204) && (x <= 218) && (y >= 38) && (y <= 101)) // Slider 08
+						|| ((x >= 217) && (x <= 261) && (y >= 18) && (y <= 30)) // Preset
+						|| ((x >= 222) && (x <= 236) && (y >= 38) && (y <= 101)) // Slider 09
+						|| ((x >= 240) && (x <= 254) && (y >= 38) && (y <= 101)) // Slider 10
+						|| ((x >= 254) && (x <= 263) && (y >= 3) && (y <= 12)) // Winshade
+						|| ((x >= 264) && (x <= 273) && (y >= 3) && (y <= 12))) { // Close
 					break;
 				}
 			}
@@ -215,12 +231,18 @@ LRESULT CALLBACK WndprocPlaylist(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 			
 			const int x = LOWORD(lp);
 			const int y = HIWORD(lp);
-			const bool shadeMode = ::SendMessage(hMain, WM_WA_IPC, IPC_GETWND_PE, IPC_IS_WNDSHADE) == 1;
 
 			RECT r;
 			::GetWindowRect(hwnd, &r);
 			const int width = r.right - r.left;
 			const int tx = x + 275 - width;
+
+			bool shadeMode;
+			if (winamp504orAbove) {
+				shadeMode = ::SendMessage(hMain, WM_WA_IPC, IPC_GETWND_PE, IPC_IS_WNDSHADE) == 1;
+			} else {
+				shadeMode = (r.bottom - r.top) == 14;
+			}
 
 			if (shadeMode) {
 				if (((tx >= 247) && (tx <= 255) && (y >= 0) && (y <= 14)) // Sizer
@@ -238,22 +260,22 @@ LRESULT CALLBACK WndprocPlaylist(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 						|| ((x >= 98) && (x <= 123) && (ty >= 78) && (ty <= 104)) // Misc menu
 						|| ((tx >= 255) && (tx <= 273) && (y >= 3) && (y <= 12)) // Winshade and Close
 						|| ((tx >= 260) && (tx <= 268) && (y >= 20) && (ty <= 78)) // Scrollbar
-						|| ((tx >= 52) && (tx <= 124) && (ty >= 90) && (ty <= 106))
-						|| ((tx >= 131) && (tx <= 185) && (ty >= 101) && (ty <= 109))
-						|| ((tx >= 132) && (tx <= 222) && (ty >= 88) && (ty <= 94))
-						|| ((tx >= 189) && (tx <= 208) && (ty >= 101) && (ty <= 107))
-						|| ((tx >= 211) && (tx <= 221) && (ty >= 101) && (ty <= 107))
-						|| ((tx >= 228) && (tx <= 253) && (ty >= 78) && (ty <= 104))
-						|| ((tx >= 256) && (tx <= 275) && (ty >= 105) && (ty <= 116))
-						|| ((tx >= 257) && (tx <= 275) && (ty >= 104) && (ty <= 116))
-						|| ((tx >= 258) && (tx <= 275) && (ty >= 103) && (ty <= 116))
-						|| ((tx >= 259) && (tx <= 275) && (ty >= 102) && (ty <= 116))
-						|| ((tx >= 260) && (tx <= 268) && (ty >= 80) && (ty <= 90))
-						|| ((tx >= 260) && (tx <= 275) && (ty >= 101) && (ty <= 116))
-						|| ((tx >= 261) && (tx <= 275) && (ty >= 100) && (ty <= 116))
-						|| ((tx >= 262) && (tx <= 275) && (ty >= 99) && (ty <= 116))
-						|| ((tx >= 263) && (tx <= 275) && (ty >= 98) && (ty <= 116))
-						|| ((tx >= 264) && (tx <= 275) && (ty >= 97) && (ty <= 116))) {
+						|| ((tx >= 52) && (tx <= 124) && (ty >= 90) && (ty <= 106)) // Vis
+						|| ((tx >= 131) && (tx <= 185) && (ty >= 101) && (ty <= 109)) // Playback
+						|| ((tx >= 132) && (tx <= 222) && (ty >= 88) && (ty <= 94)) // Time stats
+						|| ((tx >= 189) && (tx <= 208) && (ty >= 101) && (ty <= 107)) // Time Minutes
+						|| ((tx >= 211) && (tx <= 221) && (ty >= 101) && (ty <= 107)) // // Time Seconds
+						|| ((tx >= 228) && (tx <= 253) && (ty >= 78) && (ty <= 104)) // List menu
+						|| ((tx >= 256) && (tx <= 275) && (ty >= 105) && (ty <= 116)) // Size corner
+						|| ((tx >= 257) && (tx <= 275) && (ty >= 104) && (ty <= 116)) // Size corner
+						|| ((tx >= 258) && (tx <= 275) && (ty >= 103) && (ty <= 116)) // Size corner
+						|| ((tx >= 259) && (tx <= 275) && (ty >= 102) && (ty <= 116)) // Size corner
+						|| ((tx >= 260) && (tx <= 268) && (ty >= 80) && (ty <= 90)) // Updown
+						|| ((tx >= 260) && (tx <= 275) && (ty >= 101) && (ty <= 116)) // Size corner
+						|| ((tx >= 261) && (tx <= 275) && (ty >= 100) && (ty <= 116)) // Size corner
+						|| ((tx >= 262) && (tx <= 275) && (ty >= 99) && (ty <= 116)) // Size corner
+						|| ((tx >= 263) && (tx <= 275) && (ty >= 98) && (ty <= 116)) // Size corner
+						|| ((tx >= 264) && (tx <= 275) && (ty >= 97) && (ty <= 116))) { // Size corner
 					break;
 				}
 			}
@@ -268,8 +290,11 @@ LRESULT CALLBACK WndprocPlaylist(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
 
 
-int init()
-{
+int init() {
+	// Check Winamp version
+	winamp504orAbove = ::SendMessage(hMain, WM_WA_IPC, 0, IPC_GETVERSION) >= 0x5004;
+
+	
 	// Get equalizer window
 	hEqualizer = reinterpret_cast<HWND>(::SendMessage(hMain, WM_WA_IPC, IPC_GETWND_EQ, IPC_GETWND));
 	if (!hEqualizer || !IsWindow(hEqualizer)) {
@@ -316,7 +341,7 @@ int init()
 
 
 	// Get Winamp.ini path
-	szWinampIni = reinterpret_cast<char *>(::SendMessage(hMain, WM_WA_IPC, 0, IPC_GETINIFILE));	
+	szWinampIni = reinterpret_cast<char *>(::SendMessage(hMain, WM_WA_IPC, 0, IPC_GETINIFILE));
 
 
 

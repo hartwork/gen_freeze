@@ -42,12 +42,6 @@
 			<Option link="0" />
 			<Option target="default" />
 		</Unit>
-		<Unit filename="..\..\Source\Winamp\wa_msgids.h">
-			<Option compilerVar="CPP" />
-			<Option compile="0" />
-			<Option link="0" />
-			<Option target="default" />
-		</Unit>
 		<Unit filename="..\..\Source\gen_freeze.cpp">
 			<Option compilerVar="CPP" />
 			<Option target="default" />

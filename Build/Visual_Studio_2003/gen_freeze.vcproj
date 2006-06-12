@@ -132,9 +132,6 @@
 			<File
 				RelativePath="..\..\Source\Winamp\wa_ipc.h">
 			</File>
-			<File
-				RelativePath="..\..\Source\Winamp\wa_msgids.h">
-			</File>
 		</Filter>
 		<Filter
 			Name="Resource Files"
