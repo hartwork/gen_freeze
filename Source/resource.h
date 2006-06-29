@@ -10,6 +10,7 @@
 #define IDC_FRAME                       1005
 #define IDC_URL                         1006
 #define IDC_INFO                        1007
+#define IDC_GEN                         1008
 
 // Next default values for new objects
 // 

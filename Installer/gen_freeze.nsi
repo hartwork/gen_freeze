@@ -3,8 +3,8 @@
 ; This script was derived from the 'Winamp Plugin Installer' example:
 ; http://nsis.sourceforge.net/Winamp_Plugin_Installer_Scripts
 
-!define VERSION "2.13"
-!define VER_ALT "213"
+!define VERSION "2.2"
+!define VER_ALT "22"
 !define PLUG "Freeze Winamp Plugin"
 !define PLUG_ALT "gen_freeze"
 !define PLUG_FILE "gen_freeze"
