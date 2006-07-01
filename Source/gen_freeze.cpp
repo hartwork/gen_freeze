@@ -27,7 +27,7 @@ using namespace std;
 
 
 #define PLUGIN_TITLE    "Freeze Winamp Plugin"
-#define PLUGIN_VERSION  "2.2"
+#define PLUGIN_VERSION  "2.3"
 
 
 
@@ -37,20 +37,29 @@ void quit();
 
 
 
-WNDPROC WndprocMainBackup = NULL;
-WNDPROC WndprocEqualizerBackup = NULL;
-WNDPROC WndprocPlaylistBackup = NULL;
+WNDPROC wndprocMainBackup = NULL;
+WNDPROC wndprocEqualizerBackup = NULL;
+WNDPROC wndprocPlaylistBackup = NULL;
+WNDPROC wndprocVideoBackup = NULL;
 
-LRESULT CALLBACK WndprocMain(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
-LRESULT CALLBACK WndprocEqualizer(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
-LRESULT CALLBACK WndprocPlaylist(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+LRESULT CALLBACK wndprocMain(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+LRESULT CALLBACK wndprocEqualizer(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+LRESULT CALLBACK wndprocPlaylist(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+LRESULT CALLBACK wndprocVideo(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+
 
 
 // During runtime
-bool freezeMain; 
-bool freezeEqualizer;
-bool freezePlaylist;
-bool freezeGen; // "Winamp Gen" windows
+bool freezeMoveMain; 
+bool freezeMoveEqualizer;
+bool freezeMovePlaylist;
+bool freezeMoveVideo;
+bool freezeMoveGen; // "Winamp Gen" windows
+
+bool freezeSizePlaylist;
+bool freezeSizeVideo;
+bool freezeSizeGen; // "Winamp Gen" windows
+
 
 char * winampIniPath = NULL;
 bool winamp504orAbove = false;
@@ -74,12 +83,13 @@ winampGeneralPurposePlugin plugin = {
 HINSTANCE & hInstance = plugin.hDllInstance;
 
 HWND & hMain     = plugin.hwndParent;
-HWND hPlaylist   = NULL;
 HWND hEqualizer  = NULL;
+HWND hPlaylist   = NULL;
+HWND hVideo      = NULL;
 
 
 
-LRESULT CALLBACK wndProcEmbed(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+LRESULT CALLBACK wndprocGen(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 	switch (msg) {
 	case WM_WINDOWPOSCHANGING:
 		{
@@ -87,13 +97,14 @@ LRESULT CALLBACK wndProcEmbed(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 				break;
 			}
 
-			// Is window sized?
+			// Is window sized or moved?
 			WINDOWPOS * const winpos = reinterpret_cast<WINDOWPOS *>(lp);
-			if ((winpos->flags & SWP_NOSIZE) != SWP_NOSIZE) {
+			const UINT forceFlag = (SWP_NOMOVE | SWP_NOSIZE);
+			if ((winpos->flags & forceFlag) != forceFlag) {
 				const SHORT leftDown = 0x8000;
 				if ((leftDown & ::GetAsyncKeyState(GetSystemMetrics(SM_SWAPBUTTON) ? VK_RBUTTON : VK_LBUTTON)) != leftDown) {
-					// Deny sizing
-					winpos->flags |= SWP_NOSIZE;
+					// Deny sizing and moving
+					winpos->flags |= forceFlag;
 					return 0;
 				}
 			}
@@ -102,7 +113,7 @@ LRESULT CALLBACK wndProcEmbed(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
 	case WM_LBUTTONDOWN:
 		{
-			if (!freezeGen) {
+			if (!freezeMoveGen && !freezeSizeGen) {
 				break;
 			}
 
@@ -117,9 +128,10 @@ LRESULT CALLBACK wndProcEmbed(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 			const int tx = LOWORD(lp) + 275 - (r.right - r.left);
 			const int ty = HIWORD(lp) + 116 - (r.bottom - r.top);
 				
-			if (((tx >= 256) && (tx <= 275) && (ty >= 102) && (ty <= 116)) // Size corner
-					|| ((tx >= 264) && (tx <= 273) && (y >= 3) && (y <= 12)) // Close
-					|| ((tx >= 267) && (tx <= 275) && (ty >= 96) && (ty <= 116))) { // Size corner
+			if (((tx >= 264) && (tx <= 273) && (y >= 3) && (y <= 12)) // Close
+					|| (!freezeSizeGen && (
+						((tx >= 256) && (tx <= 275) && (ty >= 102) && (ty <= 116)) // Size corner
+						|| ((tx >= 267) && (tx <= 275) && (ty >= 96) && (ty <= 116))))) { // Size corner
 				break;
 			}
 		}
@@ -137,7 +149,7 @@ LRESULT CALLBACK wndProcEmbed(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
 
 
-LRESULT CALLBACK WndprocMain(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+LRESULT CALLBACK wndprocMain(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 	switch (msg) {
 	case WM_WA_IPC:
 		switch (lp) {
@@ -171,7 +183,7 @@ LRESULT CALLBACK WndprocMain(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 									const WNDPROC walkProc = reinterpret_cast<WNDPROC>(::GetWindowLongPtr(walk, GWLP_WNDPROC));
 									if (walkProc != NULL) {
 										getWindowProc.insert(pair<HWND, WNDPROC>(walk, walkProc));
-										::SetWindowLongPtr(walk, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(wndProcEmbed));
+										::SetWindowLongPtr(walk, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(wndprocGen));
 									}
 								}
 							}
@@ -186,7 +198,7 @@ LRESULT CALLBACK WndprocMain(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
 	case WM_LBUTTONDOWN:
 		{
-			if (!freezeMain) {
+			if (!freezeMoveMain) {
 				break;
 			}
 
@@ -251,22 +263,20 @@ LRESULT CALLBACK WndprocMain(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 					break;
 				}
 			}
-			
-			return 0;
 		}
+		return 0;
 
-		break;
 	}
-	return ::CallWindowProc(WndprocMainBackup, hwnd, msg, wp, lp);
+	return ::CallWindowProc(wndprocMainBackup, hwnd, msg, wp, lp);
 }
 
 
 
-LRESULT CALLBACK WndprocEqualizer(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+LRESULT CALLBACK wndprocEqualizer(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 	switch (msg) {
 	case WM_LBUTTONDOWN:
 		{
-			if (!freezeEqualizer) {
+			if (!freezeMoveEqualizer) {
 				break;
 			}
 
@@ -315,22 +325,20 @@ LRESULT CALLBACK WndprocEqualizer(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 					break;
 				}
 			}
-			
-			return 0;
 		}
+		return 0;
 
-		break;
 	}
-	return ::CallWindowProc(WndprocEqualizerBackup, hwnd, msg, wp, lp);
+	return ::CallWindowProc(wndprocEqualizerBackup, hwnd, msg, wp, lp);
 }
 
 
 
-LRESULT CALLBACK WndprocPlaylist(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+LRESULT CALLBACK wndprocPlaylist(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 	switch (msg) {
 	case WM_LBUTTONDOWN:
 		{
-			if (!freezePlaylist) {
+			if (!freezeMovePlaylist && !freezeSizePlaylist) {
 				break;
 			}
 			
@@ -355,7 +363,7 @@ LRESULT CALLBACK WndprocPlaylist(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 			}
 
 			if (shadeMode) {
-				if (((tx >= 247) && (tx <= 255) && (y >= 0) && (y <= 14)) // Sizer
+				if ((!freezeSizePlaylist && (tx >= 247) && (tx <= 255) && (y >= 0) && (y <= 14)) // Sizer
 						|| ((tx >= 255) && (tx <= 273) && (y >= 3) && (y <= 12))) { // Winshade and Close
 					break;
 				}
@@ -376,33 +384,106 @@ LRESULT CALLBACK WndprocPlaylist(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 						|| ((tx >= 189) && (tx <= 208) && (ty >= 101) && (ty <= 107)) // Time Minutes
 						|| ((tx >= 211) && (tx <= 221) && (ty >= 101) && (ty <= 107)) // // Time Seconds
 						|| ((tx >= 228) && (tx <= 253) && (ty >= 78) && (ty <= 104)) // List menu
-						|| ((tx >= 256) && (tx <= 275) && (ty >= 105) && (ty <= 116)) // Size corner
+						|| ((tx >= 260) && (tx <= 268) && (ty >= 80) && (ty <= 90)) // Updown
+						|| (!freezeSizePlaylist && (
+							((tx >= 256) && (tx <= 275) && (ty >= 105) && (ty <= 116)) // Size corner
+							|| ((tx >= 257) && (tx <= 275) && (ty >= 104) && (ty <= 116)) // Size corner
+							|| ((tx >= 258) && (tx <= 275) && (ty >= 103) && (ty <= 116)) // Size corner
+							|| ((tx >= 259) && (tx <= 275) && (ty >= 102) && (ty <= 116)) // Size corner
+							|| ((tx >= 260) && (tx <= 275) && (ty >= 101) && (ty <= 116)) // Size corner
+							|| ((tx >= 261) && (tx <= 275) && (ty >= 100) && (ty <= 116)) // Size corner
+							|| ((tx >= 262) && (tx <= 275) && (ty >= 99) && (ty <= 116)) // Size corner
+							|| ((tx >= 263) && (tx <= 275) && (ty >= 98) && (ty <= 116)) // Size corner
+							|| ((tx >= 264) && (tx <= 275) && (ty >= 97) && (ty <= 116))))) { // Size corner
+					break;
+				}
+			}
+		}
+		return 0;
+
+	}
+	return ::CallWindowProc(wndprocPlaylistBackup, hwnd, msg, wp, lp);
+}
+
+
+
+LRESULT CALLBACK wndprocVideo(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+	switch (msg) {
+	case WM_LBUTTONDOWN:
+		{
+			if (!freezeMoveVideo && !freezeSizeVideo) {
+				break;
+			}
+			
+			const bool controlDown = (::GetKeyState(VK_CONTROL) & 0x8000) != 0;
+			if (controlDown) {
+				break;
+			}
+			
+			const int x = LOWORD(lp);
+			const int y = HIWORD(lp);
+
+			RECT r;
+			::GetWindowRect(hwnd, &r);
+			const int width = r.right - r.left;
+			const int height = r.bottom - r.top;
+			const int tx = x + 275 - width;
+			const int ty = y + 116 - height;
+
+			if (((x >= 9) && (x <= 84) && (ty >= 87) && (ty <= 105)) // Buttons
+					|| ((tx >= 264) && (tx <= 273) && (y >= 3) && (y <= 12)) // Close
+					|| (!freezeSizeVideo && (
+						((tx >= 256) && (tx <= 275) && (ty >= 105) && (ty <= 116)) // Size corner
 						|| ((tx >= 257) && (tx <= 275) && (ty >= 104) && (ty <= 116)) // Size corner
 						|| ((tx >= 258) && (tx <= 275) && (ty >= 103) && (ty <= 116)) // Size corner
 						|| ((tx >= 259) && (tx <= 275) && (ty >= 102) && (ty <= 116)) // Size corner
-						|| ((tx >= 260) && (tx <= 268) && (ty >= 80) && (ty <= 90)) // Updown
 						|| ((tx >= 260) && (tx <= 275) && (ty >= 101) && (ty <= 116)) // Size corner
 						|| ((tx >= 261) && (tx <= 275) && (ty >= 100) && (ty <= 116)) // Size corner
 						|| ((tx >= 262) && (tx <= 275) && (ty >= 99) && (ty <= 116)) // Size corner
 						|| ((tx >= 263) && (tx <= 275) && (ty >= 98) && (ty <= 116)) // Size corner
-						|| ((tx >= 264) && (tx <= 275) && (ty >= 97) && (ty <= 116))) { // Size corner
-					break;
-				}
+						|| ((tx >= 264) && (tx <= 275) && (ty >= 97) && (ty <= 116))))) { // Size corner
+				break;
 			}
-			
-			return 0;
 		}
+		return 0;
 
+	}
+	return ::CallWindowProc(wndprocVideoBackup, hwnd, msg, wp, lp);
+}
+
+
+
+void revertInit(int level) {
+	switch (level) {
+	case 2:
+		// Revert video
+		::SetWindowLongPtr(hVideo, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(wndprocVideoBackup));
+		// NO BREAK!
+
+	case 1:
+		// Revert playlist
+		::SetWindowLongPtr(hPlaylist, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(wndprocPlaylistBackup));
+		// NO BREAK!
+
+	case 0:
+		// Revert equalizer
+		::SetWindowLongPtr(hEqualizer, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(wndprocEqualizerBackup));
+
+	default:
 		break;
 	}
-	return ::CallWindowProc(WndprocPlaylistBackup, hwnd, msg, wp, lp);
 }
 
 
 
 int init() {
 	// Check Winamp version
-	winamp504orAbove = ::SendMessage(hMain, WM_WA_IPC, 0, IPC_GETVERSION) >= 0x5004;
+	const LRESULT version = ::SendMessage(hMain, WM_WA_IPC, 0, IPC_GETVERSION);
+	if (version < 0x2090) {
+		::MessageBox(hMain, "This plugin requires Winamp 2.9+   \nin order to work properly.", PLUGIN_TITLE, MB_ICONERROR);
+		return 1;
+	}
+	winamp504orAbove = version >= 0x5004;
 
 	
 	// Get equalizer window
@@ -412,42 +493,52 @@ int init() {
 	}
 
 	// Exchange equalizer window procedure
-	WndprocEqualizerBackup = reinterpret_cast<WNDPROC>(::GetWindowLongPtr(hEqualizer, GWLP_WNDPROC));
-	if (WndprocEqualizerBackup == NULL) {
+	wndprocEqualizerBackup = reinterpret_cast<WNDPROC>(::GetWindowLongPtr(hEqualizer, GWLP_WNDPROC));
+	if (wndprocEqualizerBackup == NULL) {
 		return 1;
 	}
-	::SetWindowLongPtr(hEqualizer, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndprocEqualizer));
+	::SetWindowLongPtr(hEqualizer, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(wndprocEqualizer));
 
 
 	// Get playlist window
 	hPlaylist = reinterpret_cast<HWND>(::SendMessage(hMain, WM_WA_IPC, IPC_GETWND_PE, IPC_GETWND));
 	if (!hPlaylist || !::IsWindow(hPlaylist)) {
-		// Revert equalizer
-		::SetWindowLongPtr(hEqualizer, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndprocEqualizerBackup));
+		revertInit(0);
 		return 1;
 	}
 	
 	// Exchange playlist window procedure
-	WndprocPlaylistBackup = reinterpret_cast<WNDPROC>(::GetWindowLongPtr(hPlaylist, GWLP_WNDPROC));
-	if (WndprocPlaylistBackup == NULL) {
-		// Revert equalizer
-		::SetWindowLongPtr(hEqualizer, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndprocEqualizerBackup));
+	wndprocPlaylistBackup = reinterpret_cast<WNDPROC>(::GetWindowLongPtr(hPlaylist, GWLP_WNDPROC));
+	if (wndprocPlaylistBackup == NULL) {
+		revertInit(0);
 		return 1;
 	}
-	::SetWindowLongPtr(hPlaylist, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndprocPlaylist));
+	::SetWindowLongPtr(hPlaylist, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(wndprocPlaylist));
 
 	
-	// Exchange main window procedure
-	WndprocMainBackup = reinterpret_cast<WNDPROC>(::GetWindowLongPtr(hMain, GWLP_WNDPROC));
-	if (WndprocMainBackup == NULL) {
-		// Revert equalizer
-		::SetWindowLongPtr(hEqualizer, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndprocEqualizerBackup));
-
-		// Revert playlist
-		::SetWindowLongPtr(hPlaylist, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndprocPlaylistBackup));
+	// Get video window
+	hVideo = reinterpret_cast<HWND>(::SendMessage(hMain, WM_WA_IPC, IPC_GETWND_VIDEO, IPC_GETWND));
+	if (!hVideo || !::IsWindow(hVideo)) {
+		revertInit(1);
 		return 1;
 	}
-	::SetWindowLongPtr(hMain, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndprocMain));
+	
+	// Exchange video window procedure
+	wndprocVideoBackup = reinterpret_cast<WNDPROC>(::GetWindowLongPtr(hVideo, GWLP_WNDPROC));
+	if (wndprocVideoBackup == NULL) {
+		revertInit(1);
+		return 1;
+	}
+	::SetWindowLongPtr(hVideo, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(wndprocVideo));
+
+
+	// Exchange main window procedure
+	wndprocMainBackup = reinterpret_cast<WNDPROC>(::GetWindowLongPtr(hMain, GWLP_WNDPROC));
+	if (wndprocMainBackup == NULL) {
+		revertInit(2);
+		return 1;
+	}
+	::SetWindowLongPtr(hMain, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(wndprocMain));
 
 
 	// Get Winamp.ini path
@@ -457,23 +548,23 @@ int init() {
 
 	// Read config
 	if (winampIniPath != NULL) {
-		int res;
-		res = ::GetPrivateProfileInt("gen_freeze", "FreezeMain", 0, winampIniPath);
-		freezeMain = res ? true : false;
-
-		res = ::GetPrivateProfileInt("gen_freeze", "FreezeEqualizer", 0, winampIniPath);
-		freezeEqualizer = res ? true : false;
-
-		res = ::GetPrivateProfileInt("gen_freeze", "FreezePlaylist", 0, winampIniPath);
-		freezePlaylist = res ? true : false;
-
-		res = ::GetPrivateProfileInt("gen_freeze", "FreezeGen", 0, winampIniPath);
-		freezeGen = res ? true : false;
+		freezeMoveMain = ::GetPrivateProfileInt("gen_freeze", "FreezeMoveMain", 1, winampIniPath) ? true : false;
+		freezeMoveEqualizer = ::GetPrivateProfileInt("gen_freeze", "FreezeMoveEqualizer", 1, winampIniPath) ? true : false;
+		freezeMovePlaylist = ::GetPrivateProfileInt("gen_freeze", "FreezeMovePlaylist", 1, winampIniPath) ? true : false;
+		freezeMoveVideo = ::GetPrivateProfileInt("gen_freeze", "FreezeMoveVideo", 1, winampIniPath) ? true : false;
+		freezeMoveGen = ::GetPrivateProfileInt("gen_freeze", "FreezeMoveGen", 1, winampIniPath) ? true : false;
+		freezeSizePlaylist = ::GetPrivateProfileInt("gen_freeze", "FreezeSizePlaylist", 1, winampIniPath) ? true : false;
+		freezeSizeVideo = ::GetPrivateProfileInt("gen_freeze", "FreezeSizeVideo", 1, winampIniPath) ? true : false;
+		freezeSizeGen = ::GetPrivateProfileInt("gen_freeze", "FreezeSizeGen", 1, winampIniPath) ? true : false;
 	} else {
-		freezeMain = true;
-		freezeEqualizer = true;
-		freezePlaylist = true;
-		freezeGen = true;
+		freezeMoveMain = true;
+		freezeMoveEqualizer = true;
+		freezeMovePlaylist = true;
+		freezeMoveVideo = true;
+		freezeMoveGen = true;
+		freezeSizePlaylist = true;
+		freezeSizeVideo = true;
+		freezeSizeGen = true;
 	}
 
 	return 0;
@@ -481,47 +572,91 @@ int init() {
 
 
 
-void UpdateAllBox(HWND h, bool a, bool b, bool c, bool d) {
-	int count = 0;
-	if (a) count++;
-	if (b) count++;
-	if (c) count++;
-	if (d) count++;
-
-	::CheckDlgButton(h,	IDC_ALL, count
-			? ((count < 4)
-				? BST_INDETERMINATE
-				: BST_CHECKED)
-			: BST_UNCHECKED);
+UINT updateAllBox(HWND hwnd, int id, bool a) {
+	const UINT check = a ? BST_CHECKED : BST_UNCHECKED;
+	::CheckDlgButton(hwnd, id, check);
+	return check;
 }
 
 
 
-BOOL CALLBACK WndprocConfig(HWND hwnd, UINT msg, WPARAM wp, LPARAM /*lp*/) {
-	static bool freezeMainBefore;
-	static bool freezeEqualizerBefore;
-	static bool freezePlaylistBefore;
-	static bool freezeGenBefore;
+UINT updateAllBox(HWND hwnd, int id, bool a, bool b) {
+	const UINT check = (a || b) ? ((a && b)
+		? BST_CHECKED : BST_INDETERMINATE) : BST_UNCHECKED;
+	::CheckDlgButton(hwnd, id, check);
+	return check;
+}
+
+
+
+UINT updateAllBox(HWND hwnd, int id, bool a, bool b, bool c) {
+	const UINT check = (a || b || c) ? ((a && b && c)
+		? BST_CHECKED : BST_INDETERMINATE) : BST_UNCHECKED;
+	::CheckDlgButton(hwnd, id, check);
+	return check;
+}
+
+
+
+UINT updateAllBox(HWND hwnd, int id, bool a, bool b, bool c, bool d, bool e) {
+	const UINT check = (a || b || c || d || e) ? ((a && b && c && d && e)
+		? BST_CHECKED : BST_INDETERMINATE) : BST_UNCHECKED;
+	::CheckDlgButton(hwnd, id, check);
+	return check;
+}
+
+
+
+void updateMatrixHead(HWND hwnd) {
+	const UINT freezeMoveCheck = updateAllBox(hwnd, IDC_MOVE_ALL, freezeMoveMain, freezeMoveEqualizer, freezeMovePlaylist, freezeMoveVideo, freezeMoveGen);
+	const UINT freezeSizeCheck = updateAllBox(hwnd, IDC_SIZE_ALL, freezeSizePlaylist, freezeSizeVideo, freezeSizeGen);
+	const UINT checkMax = (freezeMoveCheck > freezeSizeCheck) ? freezeMoveCheck : freezeSizeCheck;
+	::CheckDlgButton(hwnd, IDC_ALL_ALL, checkMax);
+}
+
+
+
+BOOL CALLBACK wndprocConfig(HWND hwnd, UINT msg, WPARAM wp, LPARAM /*lp*/) {
+	static bool freezeMoveMainBefore;
+	static bool freezeMoveEqualizerBefore;
+	static bool freezeMovePlaylistBefore;
+	static bool freezeMoveVideoBefore;
+	static bool freezeMoveGenBefore;
+	static bool freezeSizePlaylistBefore;
+	static bool freezeSizeVideoBefore;
+	static bool freezeSizeGenBefore;
 	static bool discardSettings;
 	
 	switch (msg) {
 	case WM_INITDIALOG:
 		{
 			// Save current settings
-			freezeMainBefore       = freezeMain;
-			freezeEqualizerBefore  = freezeEqualizer;
-			freezePlaylistBefore   = freezePlaylist;
-			freezeGenBefore        = freezeGen;
-			
+			freezeMoveMainBefore       = freezeMoveMain;
+			freezeMoveEqualizerBefore  = freezeMoveEqualizer;
+			freezeMovePlaylistBefore   = freezeMovePlaylist;
+			freezeMoveVideoBefore      = freezeMoveVideo;
+			freezeMoveGenBefore        = freezeMoveGen;
+			freezeSizePlaylistBefore   = freezeSizePlaylist;
+			freezeSizeVideoBefore      = freezeSizeVideo;
+			freezeSizeGenBefore        = freezeSizeGen;
 			discardSettings = true;
 
 
 			// Apply settings to checkboxes
-			::CheckDlgButton(hwnd, IDC_MAIN, freezeMain ? BST_CHECKED : BST_UNCHECKED);
-			::CheckDlgButton(hwnd, IDC_EQUALIZER, freezeEqualizer ? BST_CHECKED : BST_UNCHECKED);
-			::CheckDlgButton(hwnd, IDC_PLAYLIST, freezePlaylist ? BST_CHECKED : BST_UNCHECKED);
-			::CheckDlgButton(hwnd, IDC_GEN, freezeGen ? BST_CHECKED : BST_UNCHECKED);
-			UpdateAllBox(hwnd, freezeMain, freezeEqualizer, freezePlaylist, freezeGen);
+			::CheckDlgButton(hwnd, IDC_MOVE_MAIN, freezeMoveMain ? BST_CHECKED : BST_UNCHECKED);
+			::CheckDlgButton(hwnd, IDC_MOVE_EQ, freezeMoveEqualizer ? BST_CHECKED : BST_UNCHECKED);
+			::CheckDlgButton(hwnd, IDC_MOVE_PLAYLIST, freezeMovePlaylist ? BST_CHECKED : BST_UNCHECKED);
+			::CheckDlgButton(hwnd, IDC_MOVE_VIDEO, freezeMoveVideo ? BST_CHECKED : BST_UNCHECKED);
+			::CheckDlgButton(hwnd, IDC_MOVE_GEN, freezeMoveGen ? BST_CHECKED : BST_UNCHECKED);
+			::CheckDlgButton(hwnd, IDC_SIZE_PLAYLIST, freezeSizePlaylist ? BST_CHECKED : BST_UNCHECKED);
+			::CheckDlgButton(hwnd, IDC_SIZE_VIDEO, freezeSizeVideo ? BST_CHECKED : BST_UNCHECKED);
+			::CheckDlgButton(hwnd, IDC_SIZE_GEN, freezeSizeGen ? BST_CHECKED : BST_UNCHECKED);
+			updateAllBox(hwnd, IDC_ALL_MAIN, freezeMoveMain);
+			updateAllBox(hwnd, IDC_ALL_EQ, freezeMoveEqualizer);
+			updateAllBox(hwnd, IDC_ALL_PLAYLIST, freezeMovePlaylist, freezeSizePlaylist);
+			updateAllBox(hwnd, IDC_ALL_VIDEO, freezeMoveVideo, freezeSizeVideo);
+			updateAllBox(hwnd, IDC_ALL_GEN, freezeMoveGen, freezeSizeGen);
+			updateMatrixHead(hwnd);
 			
 			
 			// Set window title
@@ -551,10 +686,14 @@ BOOL CALLBACK WndprocConfig(HWND hwnd, UINT msg, WPARAM wp, LPARAM /*lp*/) {
 	case WM_DESTROY:
 		if (discardSettings) {
 			// Restore old settings
-			freezeMain       = freezeMainBefore;
-			freezeEqualizer  = freezeEqualizerBefore;
-			freezePlaylist   = freezePlaylistBefore;
-			freezeGen        = freezeGenBefore;
+			freezeMoveMain       = freezeMoveMainBefore;
+			freezeMoveEqualizer  = freezeMoveEqualizerBefore;
+			freezeMovePlaylist   = freezeMovePlaylistBefore;
+			freezeMoveVideo      = freezeMoveVideoBefore;
+			freezeMoveGen        = freezeMoveGenBefore;
+			freezeSizePlaylist   = freezeSizePlaylistBefore;
+			freezeSizeVideo      = freezeSizeVideoBefore;
+			freezeSizeGen        = freezeSizeGenBefore;
 		}
 		break;
 
@@ -570,58 +709,329 @@ BOOL CALLBACK WndprocConfig(HWND hwnd, UINT msg, WPARAM wp, LPARAM /*lp*/) {
 	case WM_COMMAND:
 		{
 			switch (LOWORD(wp)) {
-			case IDC_ALL:
-				switch (IsDlgButtonChecked(hwnd, IDC_ALL)) {
+			case IDC_MOVE_ALL:
+				switch (::IsDlgButtonChecked(hwnd, IDC_MOVE_ALL)) {
 				case BST_CHECKED:
 					// Uncheck all
-					::CheckDlgButton(hwnd, IDC_ALL, BST_UNCHECKED);
-					::CheckDlgButton(hwnd, IDC_MAIN, BST_UNCHECKED);
-					::CheckDlgButton(hwnd, IDC_EQUALIZER, BST_UNCHECKED);
-					::CheckDlgButton(hwnd, IDC_PLAYLIST, BST_UNCHECKED);
-					::CheckDlgButton(hwnd, IDC_GEN, BST_UNCHECKED);
-					freezeMain       = false;
-					freezeEqualizer  = false;
-					freezePlaylist   = false;
-					freezeGen        = false;
+					::CheckDlgButton(hwnd, IDC_MOVE_MAIN, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_EQ, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_PLAYLIST, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_VIDEO, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_GEN, BST_UNCHECKED);
+					freezeMoveMain       = false;
+					freezeMoveEqualizer  = false;
+					freezeMovePlaylist   = false;
+					freezeMoveVideo      = false;
+					freezeMoveGen        = false;
+					updateAllBox(hwnd, IDC_ALL_MAIN, freezeMoveMain);
+					updateAllBox(hwnd, IDC_ALL_EQ, freezeMoveEqualizer);
+					updateAllBox(hwnd, IDC_ALL_PLAYLIST, freezeMovePlaylist, freezeSizePlaylist);
+					updateAllBox(hwnd, IDC_ALL_VIDEO, freezeMoveVideo, freezeSizeVideo);
+					updateAllBox(hwnd, IDC_ALL_GEN, freezeMoveGen, freezeSizeGen);
+					updateMatrixHead(hwnd);
 					break;
 
 				case BST_INDETERMINATE:
 				case BST_UNCHECKED:
 					// Check all
-					::CheckDlgButton(hwnd, IDC_ALL, BST_CHECKED);
-					::CheckDlgButton(hwnd, IDC_MAIN, BST_CHECKED);
-					::CheckDlgButton(hwnd, IDC_EQUALIZER, BST_CHECKED);
-					::CheckDlgButton(hwnd, IDC_PLAYLIST, BST_CHECKED);
-					::CheckDlgButton(hwnd, IDC_GEN, BST_CHECKED);
-					freezeMain       = true;
-					freezeEqualizer  = true;
-					freezePlaylist   = true;
-					freezeGen        = true;
+					::CheckDlgButton(hwnd, IDC_MOVE_MAIN, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_EQ, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_PLAYLIST, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_VIDEO, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_GEN, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_ALL, BST_CHECKED);
+					freezeMoveMain       = true;
+					freezeMoveEqualizer  = true;
+					freezeMovePlaylist   = true;
+					freezeMoveVideo      = true;
+					freezeMoveGen        = true;
+					updateAllBox(hwnd, IDC_ALL_MAIN, freezeMoveMain);
+					updateAllBox(hwnd, IDC_ALL_EQ, freezeMoveEqualizer);
+					updateAllBox(hwnd, IDC_ALL_PLAYLIST, freezeMovePlaylist, freezeSizePlaylist);
+					updateAllBox(hwnd, IDC_ALL_VIDEO, freezeMoveVideo, freezeSizeVideo);
+					updateAllBox(hwnd, IDC_ALL_GEN, freezeMoveGen, freezeSizeGen);
+					updateMatrixHead(hwnd);
 					break;
 
 				}
 				break;
 
-			case IDC_MAIN:
-				freezeMain = BST_CHECKED == ::IsDlgButtonChecked(hwnd, IDC_MAIN);
-				UpdateAllBox(hwnd, freezeMain, freezeEqualizer, freezePlaylist, freezeGen);
+			case IDC_SIZE_ALL:
+				switch (::IsDlgButtonChecked(hwnd, IDC_SIZE_ALL)) {
+				case BST_CHECKED:
+					// Uncheck all
+					::CheckDlgButton(hwnd, IDC_SIZE_PLAYLIST, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_VIDEO, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_GEN, BST_UNCHECKED);
+					freezeSizePlaylist   = false;
+					freezeSizeVideo      = false;
+					freezeSizeGen        = false;
+					updateAllBox(hwnd, IDC_ALL_PLAYLIST, freezeMovePlaylist, freezeSizePlaylist);
+					updateAllBox(hwnd, IDC_ALL_VIDEO, freezeMoveVideo, freezeSizeVideo);
+					updateAllBox(hwnd, IDC_ALL_GEN, freezeMoveGen, freezeSizeGen);
+					updateMatrixHead(hwnd);
+					break;
+
+				case BST_INDETERMINATE:
+				case BST_UNCHECKED:
+					// Check all
+					::CheckDlgButton(hwnd, IDC_SIZE_PLAYLIST, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_VIDEO, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_GEN, BST_CHECKED);
+					freezeSizePlaylist   = true;
+					freezeSizeVideo      = true;
+					freezeSizeGen        = true;
+					updateAllBox(hwnd, IDC_ALL_PLAYLIST, freezeMovePlaylist, freezeSizePlaylist);
+					updateAllBox(hwnd, IDC_ALL_VIDEO, freezeMoveVideo, freezeSizeVideo);
+					updateAllBox(hwnd, IDC_ALL_GEN, freezeMoveGen, freezeSizeGen);
+					updateMatrixHead(hwnd);
+					break;
+
+				}
+				break;
+
+			case IDC_ALL_ALL:
+				switch (::IsDlgButtonChecked(hwnd, IDC_ALL_ALL)) {
+				case BST_CHECKED:
+					// Uncheck all
+					::CheckDlgButton(hwnd, IDC_MOVE_MAIN, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_EQ, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_PLAYLIST, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_VIDEO, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_GEN, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_PLAYLIST, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_VIDEO, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_GEN, BST_UNCHECKED);
+					freezeMoveMain       = false;
+					freezeMoveEqualizer  = false;
+					freezeMovePlaylist   = false;
+					freezeMoveVideo      = false;
+					freezeMoveGen        = false;
+					freezeSizePlaylist   = false;
+					freezeSizeVideo      = false;
+					freezeSizeGen        = false;
+					updateAllBox(hwnd, IDC_ALL_MAIN, freezeMoveMain);
+					updateAllBox(hwnd, IDC_ALL_EQ, freezeMoveEqualizer);
+					updateAllBox(hwnd, IDC_ALL_PLAYLIST, freezeMovePlaylist, freezeSizePlaylist);
+					updateAllBox(hwnd, IDC_ALL_VIDEO, freezeMoveVideo, freezeSizeVideo);
+					updateAllBox(hwnd, IDC_ALL_GEN, freezeMoveGen, freezeSizeGen);
+					updateMatrixHead(hwnd);
+					break;
+
+				case BST_INDETERMINATE:
+				case BST_UNCHECKED:
+					// Check all
+					::CheckDlgButton(hwnd, IDC_MOVE_MAIN, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_EQ, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_PLAYLIST, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_VIDEO, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_MOVE_GEN, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_PLAYLIST, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_VIDEO, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_GEN, BST_CHECKED);
+					freezeMoveMain       = true;
+					freezeMoveEqualizer  = true;
+					freezeMovePlaylist   = true;
+					freezeMoveVideo      = true;
+					freezeMoveGen        = true;
+					freezeSizePlaylist   = true;
+					freezeSizeVideo      = true;
+					freezeSizeGen        = true;
+					updateAllBox(hwnd, IDC_ALL_MAIN, freezeMoveMain);
+					updateAllBox(hwnd, IDC_ALL_EQ, freezeMoveEqualizer);
+					updateAllBox(hwnd, IDC_ALL_PLAYLIST, freezeMovePlaylist, freezeSizePlaylist);
+					updateAllBox(hwnd, IDC_ALL_VIDEO, freezeMoveVideo, freezeSizeVideo);
+					updateAllBox(hwnd, IDC_ALL_GEN, freezeMoveGen, freezeSizeGen);
+					updateMatrixHead(hwnd);
+					break;
+
+				}
+				break;
+
+			case IDC_MOVE_MAIN:
+				{
+					freezeMoveMain = BST_CHECKED == ::IsDlgButtonChecked(hwnd, IDC_MOVE_MAIN);
+					::CheckDlgButton(hwnd, IDC_ALL_MAIN, freezeMoveMain ? BST_CHECKED : BST_UNCHECKED);
+					updateAllBox(hwnd, IDC_ALL_MAIN, freezeMoveMain);
+					updateMatrixHead(hwnd);
+				}
 				break;
 				
-			case IDC_EQUALIZER:
-				freezeEqualizer = BST_CHECKED == ::IsDlgButtonChecked(hwnd, IDC_EQUALIZER);
-				UpdateAllBox(hwnd, freezeMain, freezeEqualizer, freezePlaylist, freezeGen);
+			case IDC_MOVE_EQ:
+				{
+					freezeMoveEqualizer = BST_CHECKED == ::IsDlgButtonChecked(hwnd, IDC_MOVE_EQ);
+					::CheckDlgButton(hwnd, IDC_ALL_EQ, freezeMoveEqualizer ? BST_CHECKED : BST_UNCHECKED);
+					updateAllBox(hwnd, IDC_ALL_EQ, freezeMoveEqualizer);
+					updateMatrixHead(hwnd);
+				}
 				break;
 				
-			case IDC_PLAYLIST:
-				freezePlaylist = BST_CHECKED == ::IsDlgButtonChecked(hwnd, IDC_PLAYLIST);
-				UpdateAllBox(hwnd, freezeMain, freezeEqualizer, freezePlaylist, freezeGen);
+			case IDC_MOVE_PLAYLIST:
+				{
+					freezeMovePlaylist = BST_CHECKED == ::IsDlgButtonChecked(hwnd, IDC_MOVE_PLAYLIST);
+					::CheckDlgButton(hwnd, IDC_ALL_PLAYLIST, freezeMovePlaylist || freezeSizePlaylist ? ((freezeMovePlaylist && freezeSizePlaylist) ? BST_CHECKED : BST_INDETERMINATE) : BST_UNCHECKED);
+					updateAllBox(hwnd, IDC_ALL_PLAYLIST, freezeMovePlaylist, freezeSizePlaylist);
+					updateMatrixHead(hwnd);
+				}
 				break;
 				
-			case IDC_GEN:
-				freezeGen = BST_CHECKED == ::IsDlgButtonChecked(hwnd, IDC_GEN);
-				UpdateAllBox(hwnd, freezeMain, freezeEqualizer, freezePlaylist, freezeGen);
+			case IDC_MOVE_VIDEO:
+				{
+					freezeMoveVideo = BST_CHECKED == ::IsDlgButtonChecked(hwnd, IDC_MOVE_VIDEO);
+					::CheckDlgButton(hwnd, IDC_ALL_VIDEO, freezeMoveVideo || freezeSizeVideo ? ((freezeMoveVideo && freezeSizeVideo) ? BST_CHECKED : BST_INDETERMINATE) : BST_UNCHECKED);
+					updateAllBox(hwnd, IDC_ALL_VIDEO, freezeMoveVideo, freezeSizeVideo);
+					updateMatrixHead(hwnd);
+				}
 				break;
 				
+			case IDC_MOVE_GEN:
+				{
+					freezeMoveGen = BST_CHECKED == ::IsDlgButtonChecked(hwnd, IDC_MOVE_GEN);
+					::CheckDlgButton(hwnd, IDC_ALL_GEN, freezeMoveGen || freezeSizeGen ? ((freezeMoveGen && freezeSizeGen) ? BST_CHECKED : BST_INDETERMINATE) : BST_UNCHECKED);
+					updateAllBox(hwnd, IDC_ALL_GEN, freezeMoveGen, freezeSizeGen);
+					updateMatrixHead(hwnd);
+				}
+				break;
+				
+			case IDC_SIZE_PLAYLIST:
+				{
+					freezeSizePlaylist = BST_CHECKED == ::IsDlgButtonChecked(hwnd, IDC_SIZE_PLAYLIST);
+					::CheckDlgButton(hwnd, IDC_ALL_PLAYLIST, freezeMovePlaylist || freezeSizePlaylist ? ((freezeMovePlaylist && freezeSizePlaylist) ? BST_CHECKED : BST_INDETERMINATE) : BST_UNCHECKED);
+					updateAllBox(hwnd, IDC_ALL_PLAYLIST, freezeMovePlaylist, freezeSizePlaylist);
+					updateMatrixHead(hwnd);
+				}
+				break;
+				
+			case IDC_SIZE_VIDEO:
+				{
+					freezeSizeVideo = BST_CHECKED == ::IsDlgButtonChecked(hwnd, IDC_SIZE_VIDEO);
+					::CheckDlgButton(hwnd, IDC_ALL_VIDEO, freezeMoveVideo || freezeSizeVideo ? ((freezeMoveVideo && freezeSizeVideo) ? BST_CHECKED : BST_INDETERMINATE) : BST_UNCHECKED);
+					updateAllBox(hwnd, IDC_ALL_VIDEO, freezeMoveVideo, freezeSizeVideo);
+					updateMatrixHead(hwnd);
+				}
+				break;
+				
+			case IDC_SIZE_GEN:
+				{
+					freezeSizeGen = BST_CHECKED == ::IsDlgButtonChecked(hwnd, IDC_SIZE_GEN);
+					::CheckDlgButton(hwnd, IDC_ALL_GEN, freezeMoveGen || freezeSizeGen ? ((freezeMoveGen && freezeSizeGen) ? BST_CHECKED : BST_INDETERMINATE) : BST_UNCHECKED);
+					updateAllBox(hwnd, IDC_ALL_GEN, freezeMoveGen, freezeSizeGen);
+					updateMatrixHead(hwnd);
+				}
+				break;
+
+			case IDC_ALL_MAIN:
+				switch (::IsDlgButtonChecked(hwnd, IDC_ALL_MAIN)) {
+				case BST_CHECKED:
+					// Uncheck all
+					::CheckDlgButton(hwnd, IDC_MOVE_MAIN, BST_UNCHECKED);
+					freezeMoveMain = false;
+					break;
+
+				case BST_INDETERMINATE:
+				case BST_UNCHECKED:
+					// Check all
+					::CheckDlgButton(hwnd, IDC_MOVE_MAIN, BST_CHECKED);
+					freezeMoveMain = true;
+					break;
+
+				}
+				updateAllBox(hwnd, IDC_ALL_MAIN, freezeMoveMain);
+				updateMatrixHead(hwnd);
+				break;
+
+			case IDC_ALL_EQ:
+				switch (::IsDlgButtonChecked(hwnd, IDC_ALL_EQ)) {
+				case BST_CHECKED:
+					// Uncheck all
+					::CheckDlgButton(hwnd, IDC_MOVE_EQ, BST_UNCHECKED);
+					freezeMoveEqualizer = false;
+					break;
+
+				case BST_INDETERMINATE:
+				case BST_UNCHECKED:
+					// Check all
+					::CheckDlgButton(hwnd, IDC_MOVE_EQ, BST_CHECKED);
+					freezeMoveEqualizer = true;
+					break;
+
+				}
+				updateAllBox(hwnd, IDC_ALL_EQ, freezeMoveEqualizer);
+				updateMatrixHead(hwnd);
+				break;
+
+			case IDC_ALL_PLAYLIST:
+				switch (::IsDlgButtonChecked(hwnd, IDC_ALL_PLAYLIST)) {
+				case BST_CHECKED:
+					// Uncheck all
+					::CheckDlgButton(hwnd, IDC_MOVE_PLAYLIST, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_PLAYLIST, BST_UNCHECKED);
+					freezeMovePlaylist = false;
+					freezeSizePlaylist = false;
+					break;
+
+				case BST_INDETERMINATE:
+				case BST_UNCHECKED:
+					// Check all
+					::CheckDlgButton(hwnd, IDC_MOVE_PLAYLIST, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_PLAYLIST, BST_CHECKED);
+					freezeMovePlaylist = true;
+					freezeSizePlaylist = true;
+					break;
+
+				}
+				updateAllBox(hwnd, IDC_ALL_PLAYLIST, freezeMovePlaylist);
+				updateMatrixHead(hwnd);
+				break;
+
+			case IDC_ALL_VIDEO:
+				switch (::IsDlgButtonChecked(hwnd, IDC_ALL_VIDEO)) {
+				case BST_CHECKED:
+					// Uncheck all
+					::CheckDlgButton(hwnd, IDC_MOVE_VIDEO, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_VIDEO, BST_UNCHECKED);
+					freezeMoveVideo = false;
+					freezeSizeVideo = false;
+					break;
+
+				case BST_INDETERMINATE:
+				case BST_UNCHECKED:
+					// Check all
+					::CheckDlgButton(hwnd, IDC_MOVE_VIDEO, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_VIDEO, BST_CHECKED);
+					freezeMoveVideo = true;
+					freezeSizeVideo = true;
+					break;
+
+				}
+				updateAllBox(hwnd, IDC_ALL_VIDEO, freezeMoveVideo);
+				updateMatrixHead(hwnd);
+				break;
+
+			case IDC_ALL_GEN:
+				switch (::IsDlgButtonChecked(hwnd, IDC_ALL_GEN)) {
+				case BST_CHECKED:
+					// Uncheck all
+					::CheckDlgButton(hwnd, IDC_MOVE_GEN, BST_UNCHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_GEN, BST_UNCHECKED);
+					freezeMoveGen = false;
+					freezeSizeGen = false;
+					break;
+
+				case BST_INDETERMINATE:
+				case BST_UNCHECKED:
+					// Check all
+					::CheckDlgButton(hwnd, IDC_MOVE_GEN, BST_CHECKED);
+					::CheckDlgButton(hwnd, IDC_SIZE_GEN, BST_CHECKED);
+					freezeMoveGen = true;
+					freezeSizeGen = true;
+					break;
+
+				}
+				updateAllBox(hwnd, IDC_ALL_GEN, freezeMoveGen);
+				updateMatrixHead(hwnd);
+				break;
+
 			case IDOK:
 				discardSettings = false;
 				// NO BREAK!
@@ -641,7 +1051,7 @@ BOOL CALLBACK WndprocConfig(HWND hwnd, UINT msg, WPARAM wp, LPARAM /*lp*/) {
 
 
 void config() {
-	DialogBox(hInstance, MAKEINTRESOURCE(IDD_CONFIG), ::GetForegroundWindow(), WndprocConfig);
+	::DialogBox(hInstance, MAKEINTRESOURCE(IDD_CONFIG), ::GetForegroundWindow(), wndprocConfig);
 } 
 
 
@@ -659,10 +1069,15 @@ void quit() {
 		return;
 	}
 	
-	WritePrivateProfileInt("gen_freeze", "FreezeMain", freezeMain ? 1 : 0, winampIniPath);
-	WritePrivateProfileInt("gen_freeze", "FreezeEqualizer", freezeEqualizer ? 1 : 0, winampIniPath);
-	WritePrivateProfileInt("gen_freeze", "FreezePlaylist", freezePlaylist ? 1 : 0, winampIniPath);
-	WritePrivateProfileInt("gen_freeze", "FreezeGen", freezeGen ? 1 : 0, winampIniPath);
+	::WritePrivateProfileInt("gen_freeze", "FreezeMoveMain", freezeMoveMain ? 1 : 0, winampIniPath);
+	::WritePrivateProfileInt("gen_freeze", "FreezeMoveEqualizer", freezeMoveEqualizer ? 1 : 0, winampIniPath);
+	::WritePrivateProfileInt("gen_freeze", "FreezeMovePlaylist", freezeMovePlaylist ? 1 : 0, winampIniPath);
+	::WritePrivateProfileInt("gen_freeze", "FreezeMoveVideo", freezeMoveVideo ? 1 : 0, winampIniPath);
+	::WritePrivateProfileInt("gen_freeze", "FreezeMoveGen", freezeMoveGen ? 1 : 0, winampIniPath);
+
+	::WritePrivateProfileInt("gen_freeze", "FreezeSizePlaylist", freezeSizePlaylist ? 1 : 0, winampIniPath);
+	::WritePrivateProfileInt("gen_freeze", "FreezeSizeVideo", freezeSizeVideo ? 1 : 0, winampIniPath);
+	::WritePrivateProfileInt("gen_freeze", "FreezeSizeGen", freezeSizeGen ? 1 : 0, winampIniPath);
 }
 
 

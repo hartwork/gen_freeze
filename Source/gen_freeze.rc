@@ -26,28 +26,55 @@ LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
 // Dialog
 //
 
-IDD_CONFIG DIALOGEX 0, 0, 168, 136
+IDD_CONFIG DIALOGEX 0, 0, 169, 152
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | 
     WS_SYSMENU
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    GROUPBOX        "Freeze",IDC_FRAME,5,2,98,77
-    CONTROL         "All four",IDC_ALL,"Button",BS_3STATE | WS_TABSTOP,15,14,
-                    76,9
-    CONTROL         "Main window",IDC_MAIN,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,27,27,65,9
-    CONTROL         "Equalizer",IDC_EQUALIZER,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,27,38,64,9
-    CONTROL         "Playlist",IDC_PLAYLIST,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,27,49,66,10
-    CONTROL         "Generics",IDC_GEN,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
-                    27,60,65,9
-    DEFPUSHBUTTON   "OK",IDOK,111,6,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,111,23,50,14
+    GROUPBOX        "Freeze",IDC_FRAME,5,2,100,92
+    LTEXT           "M",IDC_INFO3,17,13,8,8
+    LTEXT           "S",IDC_INFO,30,13,8,8
+    LTEXT           "B",IDC_INFO4,41,13,8,8
+    CONTROL         "",IDC_MOVE_ALL,"Button",BS_3STATE | WS_TABSTOP,15,22,9,
+                    9
+    CONTROL         "",IDC_SIZE_ALL,"Button",BS_3STATE | WS_TABSTOP,27,22,9,
+                    9
+    CONTROL         "&All",IDC_ALL_ALL,"Button",BS_3STATE | WS_TABSTOP,39,22,
+                    54,9
+    CONTROL         "",IDC_MOVE_MAIN,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
+                    15,33,9,9
+    CONTROL         "&Main window",IDC_ALL_MAIN,"Button",BS_3STATE | 
+                    WS_TABSTOP,39,33,56,9
+    CONTROL         "",IDC_MOVE_EQ,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,
+                    44,9,9
+    CONTROL         "&Equalizer",IDC_ALL_EQ,"Button",BS_3STATE | WS_TABSTOP,
+                    39,44,43,9
+    CONTROL         "",IDC_MOVE_PLAYLIST,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,15,55,9,9
+    CONTROL         "",IDC_SIZE_PLAYLIST,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,27,55,9,9
+    CONTROL         "&Playlist",IDC_ALL_PLAYLIST,"Button",BS_3STATE | 
+                    WS_TABSTOP,39,55,36,10
+    CONTROL         "",IDC_MOVE_VIDEO,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
+                    15,66,9,9
+    CONTROL         "",IDC_SIZE_VIDEO,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
+                    27,66,9,9
+    CONTROL         "&Video",IDC_ALL_VIDEO,"Button",BS_3STATE | WS_TABSTOP,
+                    39,66,31,9
+    CONTROL         "",IDC_MOVE_GEN,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,
+                    77,9,9
+    CONTROL         "",IDC_SIZE_GEN,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,27,
+                    77,9,9
+    CONTROL         "&Generics",IDC_ALL_GEN,"Button",BS_3STATE | WS_TABSTOP,
+                    39,77,41,9
+    DEFPUSHBUTTON   "OK",IDOK,112,6,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,112,23,50,14
+    LTEXT           "M\nS\nB",IDC_INFO2,120,50,9,27
+    LTEXT           "- Moving\n- Sizing\n- Both",IDC_INFO6,127,50,30,27
     LTEXT           "This plugin would not be possible\nwithout the help of BastardKidKris,\nbillyvnilly, Maxim and Mr Jones.",
-                    IDC_INFO,27,89,112,27
+                    IDC_INFO5,28,105,112,27
     CONTROL         " http://www.hartwork.org",IDC_URL,"Static",
-                    SS_LEFTNOWORDWRAP | SS_SUNKEN | WS_GROUP,0,126,168,10
+                    SS_LEFTNOWORDWRAP | SS_SUNKEN | WS_GROUP,0,142,169,10
 END
 
 #endif    // German (Germany) resources
